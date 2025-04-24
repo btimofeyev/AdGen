@@ -93,7 +93,7 @@ const generateSingleAd = async (req, res) => {
       prompt: fullPrompt,
       n: 1,
       size: "1024x1024",
-      quality: "high"
+      quality: "low"
     });
     
     // Process and return the result
@@ -144,7 +144,7 @@ const generateMultipleAds = async (req, res) => {
           prompt: fullPrompt,
           n: 1,
           size: "1024x1024",
-          quality: "standard"
+          quality: "high"
         });
         
         const generatedImage = result.data[0].b64_json;
