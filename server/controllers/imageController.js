@@ -5,7 +5,6 @@ const { OpenAI } = require('openai');
 const dotenv = require('dotenv'); 
 dotenv.config();
 
-
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -48,43 +47,28 @@ const uploadImage = (req, res) => {
 // Generate a single ad
 const generateSingleAd = async (req, res) => {
   try {
-    const { filepath, prompt, theme } = req.body;
+    const { filepath, prompt, theme, format, quality = "high" } = req.body;
     
     if (!filepath || !fs.existsSync(filepath)) {
       return res.status(400).json({ error: 'Invalid file path' });
     }
     
-    // Get the file extension to determine MIME type
-    const fileExtension = path.extname(filepath).toLowerCase();
-    let mimeType;
-    
-    switch (fileExtension) {
-      case '.png':
-        mimeType = 'image/png';
-        break;
-      case '.jpg':
-      case '.jpeg':
-        mimeType = 'image/jpeg';
-        break;
-      case '.webp':
-        mimeType = 'image/webp';
-        break;
-      default:
-        return res.status(400).json({ 
-          error: 'Unsupported file format. Please use PNG, JPEG, or WebP images.' 
-        });
-    }
-    
-    // Read the file as a buffer
+    // Read the file
     const imageBuffer = fs.readFileSync(filepath);
     
-    // Use the OpenAI SDK's helper function to convert the buffer to a File object
-    // You need to use the toFile function from the OpenAI SDK
-    const { toFile } = require('openai');
-    const imageFile = await toFile(imageBuffer, path.basename(filepath), { type: mimeType });
+    // Create a proper file object for the OpenAI API
+    const fileName = path.basename(filepath);
+    const mimeType = getMimeType(filepath);
+    
+    // Use OpenAI's helper for creating a File object
+    const { toFile } = OpenAI;
+    const imageFile = await toFile(imageBuffer, fileName, { type: mimeType });
     
     // Prepare the prompt
-    const fullPrompt = `Generate an advertisement for ${prompt || 'a product'}. ${theme ? `Theme: ${theme}.` : ''}`;
+    const fullPrompt = `Generate a professional ${format || 'advertisement'} featuring this image. ${prompt || ''} ${theme ? `Theme: ${theme}.` : ''}`;
+    
+    // Select image size based on format
+    const imageSize = getImageSize(format);
     
     // Call OpenAI API
     const result = await openai.images.edit({
@@ -92,8 +76,8 @@ const generateSingleAd = async (req, res) => {
       image: imageFile,
       prompt: fullPrompt,
       n: 1,
-      size: "1024x1024",
-      quality: "low"
+      size: imageSize,
+      quality: quality
     });
     
     // Process and return the result
@@ -117,14 +101,19 @@ const generateSingleAd = async (req, res) => {
     });
   }
 };
+
 // Generate multiple ads with different themes
 const generateMultipleAds = async (req, res) => {
   try {
-    const { filepath, prompt, themes = [], count = 3 } = req.body;
+    const { filepath, prompt, themes = [], formats = [], count = 3, quality = "high" } = req.body;
     
     if (!filepath || !fs.existsSync(filepath)) {
       return res.status(400).json({ error: 'Invalid file path' });
     }
+    
+    // Get file info
+    const fileName = path.basename(filepath);
+    const mimeType = getMimeType(filepath);
     
     // Read the image file
     const imageBuffer = fs.readFileSync(filepath);
@@ -133,46 +122,64 @@ const generateMultipleAds = async (req, res) => {
     const themesToUse = themes.length > 0 ? themes : 
       commonThemes.sort(() => 0.5 - Math.random()).slice(0, count);
     
-    // Generate ads for each theme
-    const generationPromises = themesToUse.map(async (theme) => {
-      const fullPrompt = `Create a professional advertisement for ${prompt || 'a product'} with theme: ${theme}. Make it visually appealing with appropriate text and styling.`;
+    // Use provided formats or select random ones
+    const formatsToUse = formats.length > 0 ? formats :
+      platformFormats.sort(() => 0.5 - Math.random()).slice(0, count)
+        .map(format => format.name);
+    
+    // Generate ads for each theme and format combination
+    const generationPromises = [];
+    
+    for (let i = 0; i < count; i++) {
+      const theme = themesToUse[i % themesToUse.length];
+      const format = formatsToUse[i % formatsToUse.length];
+      
+      // Create a fresh file object for each request
+      const imageFile = await OpenAI.toFile(imageBuffer, fileName, { type: mimeType });
+      
+      const fullPrompt = `Create a professional ${format} for ${prompt || 'this product'} with theme: ${theme}. Make it visually appealing with appropriate text and styling.`;
+      
+      // Get appropriate size for this format
+      const imageSize = getImageSize(format);
       
       try {
-        const result = await openai.images.edit({
-          model: "gpt-image-1",
-          image: imageBuffer,
-          prompt: fullPrompt,
-          n: 1,
-          size: "1024x1024",
-          quality: "high"
-        });
-        
-        const generatedImage = result.data[0].b64_json;
-        const outputPath = path.join(__dirname, '../uploads', `generated_${theme.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}.png`);
-        
-        // Save the generated image
-        fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
-        
-        return {
+        generationPromises.push(generateImage(
+          imageFile,
+          fullPrompt,
           theme,
-          imageUrl: `/api/images/${path.basename(outputPath)}`,
-          base64Image: `data:image/png;base64,${generatedImage}`
-        };
+          format,
+          imageSize,
+          quality
+        ));
       } catch (error) {
-        console.error(`Error generating image for theme "${theme}":`, error);
-        return {
+        console.error(`Error creating promise for theme "${theme}":`, error);
+        generationPromises.push({
           theme,
+          format,
           error: error.message
+        });
+      }
+    }
+    
+    // Wait for all generation tasks to complete
+    const results = await Promise.allSettled(generationPromises);
+    
+    // Process results
+    const processedResults = results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        return {
+          theme: themesToUse[index % themesToUse.length],
+          format: formatsToUse[index % formatsToUse.length],
+          error: result.reason.message || 'Failed to generate image'
         };
       }
     });
     
-    // Wait for all generation tasks to complete
-    const results = await Promise.all(generationPromises);
-    
     return res.status(200).json({
-      message: 'Multiple ad images generated',
-      results
+      message: 'Multiple visual assets generated',
+      results: processedResults
     });
     
   } catch (error) {
@@ -183,6 +190,70 @@ const generateMultipleAds = async (req, res) => {
     });
   }
 };
+
+// Helper function to generate a single image
+async function generateImage(imageFile, prompt, theme, format, size, quality) {
+  try {
+    const result = await openai.images.edit({
+      model: "gpt-image-1",
+      image: imageFile,
+      prompt: prompt,
+      n: 1,
+      size: size,
+      quality: quality || "medium"
+    });
+    
+    const generatedImage = result.data[0].b64_json;
+    const outputPath = path.join(__dirname, '../uploads', `generated_${theme.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}.png`);
+    
+    // Save the generated image
+    fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
+    
+    return {
+      theme,
+      format,
+      imageUrl: `/api/images/${path.basename(outputPath)}`,
+      base64Image: `data:image/png;base64,${generatedImage}`
+    };
+  } catch (error) {
+    console.error(`Error generating image for theme "${theme}":`, error);
+    throw error;
+  }
+}
+
+// Helper function to determine image size based on format
+function getImageSize(format) {
+  if (!format) return "1024x1024"; // Default square
+  
+  const formatLower = format.toLowerCase();
+  
+  if (formatLower.includes('instagram') && formatLower.includes('story')) {
+    return "1024x1536"; // Portrait for stories
+  } else if (formatLower.includes('email') || formatLower.includes('banner')) {
+    return "1536x1024"; // Landscape for banners/emails
+  } else if (formatLower.includes('facebook')) {
+    return "1536x1024"; // Landscape for Facebook posts
+  } else if (formatLower.includes('linkedin')) {
+    return "1536x1024"; // Landscape for LinkedIn
+  } else if (formatLower.includes('tiktok')) {
+    return "1024x1536"; // Portrait for TikTok
+  }
+  
+  return "1024x1024"; // Default square format
+}
+
+// Helper function to get MIME type
+function getMimeType(filepath) {
+  const ext = path.extname(filepath).toLowerCase();
+  
+  switch (ext) {
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.webp': return 'image/webp';
+    default: return 'image/png';
+  }
+}
 
 // Get available themes and platform formats
 const getThemesAndFormats = (req, res) => {
