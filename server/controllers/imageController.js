@@ -20,7 +20,18 @@ const commonThemes = [
   "Weekend Deal",
   "New Arrival",
   "Limited Edition",
-  "Exclusive Offer"
+  "Exclusive Offer",
+  "New Collection",
+  "Seasonal Line",
+  "Bundle Deal",
+  "Free Gift",
+  "Members Only",
+  "Valentine's Day",
+  "Summer Break", 
+  "Holiday Season",
+  "Summer Ready", 
+  "Fall Favorites", 
+  "Winter Essentials"
 ];
 
 const platformFormats = [
@@ -28,7 +39,9 @@ const platformFormats = [
   { name: "Facebook Ad", size: "1200x628" },
   { name: "TikTok", size: "1080x1920" },
   { name: "Email Header", size: "600x200" },
-  { name: "Web Banner", size: "728x90" }
+  { name: "Web Banner", size: "728x90" },
+  { name: "Instagram Story", size: "1080x1920" },
+  { name: "LinkedIn Post", size: "1200x627" }
 ];
 
 // Upload image
@@ -107,7 +120,12 @@ const generateMultipleAds = async (req, res) => {
   try {
     const { filepath, prompt, themes = [], formats = [], count = 3, quality = "high" } = req.body;
     
-    if (!filepath || !fs.existsSync(filepath)) {
+    // If no filepath is provided but prompt is, we'll generate from scratch
+    if (!filepath && prompt) {
+      return generateMultipleFromScratch(req, res);
+    }
+    
+    if (filepath && !fs.existsSync(filepath)) {
       return res.status(400).json({ error: 'Invalid file path' });
     }
     
@@ -191,7 +209,85 @@ const generateMultipleAds = async (req, res) => {
   }
 };
 
-// Helper function to generate a single image
+// Generate multiple images from scratch (no reference image)
+const generateMultipleFromScratch = async (req, res) => {
+  try {
+    const { prompt, themes = [], formats = [], count = 3, quality = "high" } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required for generation from scratch' });
+    }
+    
+    // Use provided themes or select random ones from common themes
+    const themesToUse = themes.length > 0 ? themes : 
+      commonThemes.sort(() => 0.5 - Math.random()).slice(0, count);
+    
+    // Use provided formats or select random ones
+    const formatsToUse = formats.length > 0 ? formats :
+      platformFormats.sort(() => 0.5 - Math.random()).slice(0, count)
+        .map(format => format.name);
+    
+    // Generate images for each theme and format combination
+    const generationPromises = [];
+    
+    for (let i = 0; i < count; i++) {
+      const theme = themesToUse[i % themesToUse.length];
+      const format = formatsToUse[i % formatsToUse.length];
+      
+      const fullPrompt = `Create a professional ${format} for ${prompt} with theme: ${theme}. Make it visually appealing with appropriate text and styling.`;
+      
+      // Get appropriate size for this format
+      const imageSize = getImageSize(format);
+      
+      try {
+        generationPromises.push(generateImageFromScratch(
+          fullPrompt,
+          theme,
+          format,
+          imageSize,
+          quality
+        ));
+      } catch (error) {
+        console.error(`Error creating promise for theme "${theme}":`, error);
+        generationPromises.push({
+          theme,
+          format,
+          error: error.message
+        });
+      }
+    }
+    
+    // Wait for all generation tasks to complete
+    const results = await Promise.allSettled(generationPromises);
+    
+    // Process results
+    const processedResults = results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        return {
+          theme: themesToUse[index % themesToUse.length],
+          format: formatsToUse[index % formatsToUse.length],
+          error: result.reason.message || 'Failed to generate image'
+        };
+      }
+    });
+    
+    return res.status(200).json({
+      message: 'Multiple visual assets generated',
+      results: processedResults
+    });
+    
+  } catch (error) {
+    console.error('Error generating multiple images from scratch:', error);
+    return res.status(500).json({ 
+      error: 'Failed to generate images',
+      details: error.message
+    });
+  }
+};
+
+// Helper function to generate a single image with reference image
 async function generateImage(imageFile, prompt, theme, format, size, quality) {
   try {
     const result = await openai.images.edit({
@@ -217,6 +313,35 @@ async function generateImage(imageFile, prompt, theme, format, size, quality) {
     };
   } catch (error) {
     console.error(`Error generating image for theme "${theme}":`, error);
+    throw error;
+  }
+}
+
+// Helper function to generate a single image from scratch
+async function generateImageFromScratch(prompt, theme, format, size, quality) {
+  try {
+    const result = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt: prompt,
+      n: 1,
+      size: size,
+      quality: quality || "medium"
+    });
+    
+    const generatedImage = result.data[0].b64_json;
+    const outputPath = path.join(__dirname, '../uploads', `generated_${theme.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}.png`);
+    
+    // Save the generated image
+    fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
+    
+    return {
+      theme,
+      format,
+      imageUrl: `/api/images/${path.basename(outputPath)}`,
+      base64Image: `data:image/png;base64,${generatedImage}`
+    };
+  } catch (error) {
+    console.error(`Error generating image from scratch for theme "${theme}":`, error);
     throw error;
   }
 }
