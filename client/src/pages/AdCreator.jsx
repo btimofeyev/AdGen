@@ -1,10 +1,10 @@
 // client/src/pages/AdCreator.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, FileUp, X, ArrowRight, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
+import { PlusCircle, FileUp, X, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
 import { API_URL } from '../config';
 import ImageModal from '../components/ImageModal';
-import ImageGallery from '../components/ImageGallery';
+import ImageGrid from '../components/ImageGrid';
 
 function AdCreator() {
   const [file, setFile] = useState(null);
@@ -17,6 +17,7 @@ function AdCreator() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('create'); 
 
   const promptInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -156,15 +157,18 @@ function AdCreator() {
         throw new Error('No images were generated');
       }
       
-      // Format the results with additional metadata
+      // Format the results with additional metadata - no explicit labels
       const formattedResults = results.map((result, index) => ({
         ...result,
-        theme: `Generated Image ${index + 1}`,
-        format: 'AI Generated',
+        id: Date.now() + index, // Unique ID for each image
         timestamp: new Date().toISOString()
       }));
       
-      setGeneratedImages(formattedResults);
+      // Add new images to existing ones
+      setGeneratedImages(prev => [...formattedResults, ...prev]);
+      
+      // Switch to gallery tab
+      setActiveTab('gallery');
     } catch (err) {
       setError(err.message);
       console.error('Error in generation process:', err);
@@ -181,6 +185,32 @@ function AdCreator() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Copy image to clipboard
+  const handleCopyImage = async (imageBase64, index) => {
+    try {
+      // Convert the base64 string to a blob
+      const fetchResponse = await fetch(imageBase64);
+      const blob = await fetchResponse.blob();
+      
+      // Create a ClipboardItem and write to clipboard
+      const item = new ClipboardItem({ 'image/png': blob });
+      await navigator.clipboard.write([item]);
+      
+      // You could add a toast notification here to confirm copy
+      alert('Image copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy image: ', err);
+      // Fallback for browsers that don't support clipboard API
+      handleDownload(imageBase64, index);
+    }
+  };
+
+  // Handle opening the modal with a specific image
+  const handleOpenModal = (image) => {
+    setSelectedImage(image);
+    setModalOpen(true);
   };
 
   const funPrompts = [
@@ -220,49 +250,99 @@ function AdCreator() {
           <h1 className="text-2xl font-extrabold">
             <span className="text-pastel-blue">SnapSceneAI</span> Studio
           </h1>
+          
+          {/* Tabs */}
+          <div className="flex space-x-1 bg-soft-white rounded-lg p-1">
+            <button 
+              onClick={() => setActiveTab('create')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'create'
+                  ? 'bg-white shadow-sm text-charcoal'
+                  : 'text-charcoal/70 hover:text-charcoal hover:bg-white/50'
+              }`}
+            >
+              Create
+            </button>
+            <button 
+              onClick={() => setActiveTab('gallery')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'gallery'
+                  ? 'bg-white shadow-sm text-charcoal'
+                  : 'text-charcoal/70 hover:text-charcoal hover:bg-white/50'
+              }`}
+            >
+              Gallery {generatedImages.length > 0 && `(${generatedImages.length})`}
+            </button>
+          </div>
         </header>
 
         <div className="flex flex-1 overflow-hidden">
 
           {/* Center Area */}
-          <div className="flex-1 flex flex-col items-center justify-center p-10 overflow-y-auto">
+          <div className="flex-1 flex flex-col p-6 overflow-y-auto">
 
             {/* Error Message */}
             {error && (
-              <div className="w-full max-w-4xl mb-6 bg-pastel-pink/20 border border-pastel-pink/50 rounded-lg p-4 text-red-700">
+              <div className="w-full max-w-5xl mx-auto mb-6 bg-pastel-pink/20 border border-pastel-pink/50 rounded-lg p-4 text-red-700">
                 <p className="font-medium">Error: {error}</p>
               </div>
             )}
 
-            {/* Loading Skeleton */}
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-                {Array.from({ length: numImages }).map((_, idx) => (
-                  <div key={idx} className="w-full h-64 bg-soft-white animate-pulse rounded-xl border border-light-gray/30" />
-                ))}
+            {/* Create Tab */}
+            {activeTab === 'create' && (
+              <div className="w-full max-w-5xl mx-auto">
+                {/* Loading State */}
+                {loading ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+                    {Array.from({ length: numImages }).map((_, idx) => (
+                      <div key={idx} className="aspect-square bg-soft-white animate-pulse rounded-lg border border-light-gray/30" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="inline-flex items-center justify-center p-4 bg-pastel-blue/20 rounded-full mb-4">
+                      <ImagePlus size={32} className="text-pastel-blue" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Create Your Scene</h3>
+                    <p className="text-charcoal/70 max-w-md mx-auto mb-6">
+                      Upload your product image, choose a scene style, and let SnapSceneAI transform it.
+                    </p>
+                    {!preview && (
+                      <button
+                        className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal px-6 py-3 rounded-full font-semibold shadow-md transition"
+                        onClick={() => fileInputRef.current.click()}
+                      >
+                        <FileUp className="h-4 w-4 mr-2 inline-block" />
+                        Upload Image
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            ) : generatedImages.length > 0 ? (
-              <ImageGallery 
-                images={generatedImages} 
-                onDownload={handleDownload} 
-              />
-            ) : (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center p-4 bg-pastel-blue/20 rounded-full mb-4">
-                  <ImagePlus size={32} className="text-pastel-blue" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Create Your First Scene</h3>
-                <p className="text-charcoal/70 max-w-md mx-auto mb-6">
-                  Upload your product image, choose a scene style, and let SnapSceneAI transform it.
-                </p>
-                {!preview && (
-                  <button
-                    className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal px-6 py-3 rounded-full font-semibold shadow-md transition"
-                    onClick={() => fileInputRef.current.click()}
-                  >
-                    <FileUp className="h-4 w-4 mr-2 inline-block" />
-                    Upload Image
-                  </button>
+            )}
+
+            {/* Gallery Tab */}
+            {activeTab === 'gallery' && (
+              <div className="w-full max-w-6xl mx-auto">
+                <h2 className="text-xl font-bold mb-4">Your Generated Visuals</h2>
+                
+                {generatedImages.length > 0 ? (
+                  <ImageGrid 
+                    images={generatedImages} 
+                    onDownload={handleDownload}
+                    onCopy={handleCopyImage}
+                    onModalOpen={handleOpenModal}
+                  />
+                ) : (
+                  <div className="bg-white rounded-lg border border-light-gray/40 p-8 text-center">
+                    <p className="text-charcoal/70 mb-4">You haven't generated any images yet.</p>
+                    <button
+                      onClick={() => setActiveTab('create')}
+                      className="bg-pastel-blue/10 text-pastel-blue hover:bg-pastel-blue/20 px-4 py-2 rounded-lg font-medium"
+                    >
+                      Go to Create
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -369,14 +449,13 @@ function AdCreator() {
       </div>
 
       {/* Modal */}
-      <AnimatePresence>
-        {modalOpen && (
-          <ImageModal
-            image={selectedImage}
-            onClose={() => setModalOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      <ImageModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        image={selectedImage}
+        onDownload={handleDownload}
+        onCopy={handleCopyImage}
+      />
     </div>
   );
 }
