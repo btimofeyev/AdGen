@@ -1,18 +1,22 @@
+// client/src/pages/AdCreator.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, FileUp, X, ArrowRight, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
 import { API_URL } from '../config';
 import ImageModal from '../components/ImageModal';
+import ImageGallery from '../components/ImageGallery';
 
 function AdCreator() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [uploadedFilePath, setUploadedFilePath] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [numImages, setNumImages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [error, setError] = useState(null);
 
   const promptInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -26,20 +30,157 @@ function AdCreator() {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
+    
+    // Reset states
+    setError(null);
     setFile(selectedFile);
+    setUploadedFilePath(null);
+    
+    // Create preview
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result);
     reader.readAsDataURL(selectedFile);
   };
 
-  const handleSubmit = (e) => {
+  // Upload the image to the server
+  const uploadImage = async () => {
+    if (!file) return null;
+    
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch(`${API_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload image');
+      }
+      
+      const data = await response.json();
+      return data.filepath;
+    } catch (err) {
+      setError(`Upload error: ${err.message}`);
+      return null;
+    }
+  };
+
+  // Generate images based on the uploaded image and prompt
+  const generateImages = async (filePath) => {
+    try {
+      const requestBody = {
+        filepath: filePath,
+        prompt: prompt,
+        count: numImages
+      };
+      
+      const response = await fetch(`${API_URL}/generate/multiple`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate images');
+      }
+      
+      const data = await response.json();
+      return data.results;
+    } catch (err) {
+      setError(`Generation error: ${err.message}`);
+      return [];
+    }
+  };
+
+  // Generate images from scratch (without reference image)
+  const generateImagesFromScratch = async () => {
+    try {
+      const requestBody = {
+        prompt: prompt,
+        count: numImages
+      };
+      
+      const response = await fetch(`${API_URL}/generate/multiple`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate images');
+      }
+      
+      const data = await response.json();
+      return data.results;
+    } catch (err) {
+      setError(`Generation error: ${err.message}`);
+      return [];
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt.trim()) return;
+    
     setLoading(true);
-    setTimeout(() => {
-      setGeneratedImages(Array.from({ length: numImages }, (_, i) => `/ads/ad${i + 1}.png`));
+    setError(null);
+    
+    try {
+      let results = [];
+      
+      if (file) {
+        // Upload image first if not already uploaded
+        const filePath = uploadedFilePath || await uploadImage();
+        if (!filePath) throw new Error('Failed to upload image');
+        
+        // Save the file path for future generations
+        setUploadedFilePath(filePath);
+        
+        // Generate images with the uploaded image as reference
+        results = await generateImages(filePath);
+      } else {
+        // Generate images from scratch based only on the prompt
+        results = await generateImagesFromScratch();
+      }
+      
+      if (results.length === 0) {
+        throw new Error('No images were generated');
+      }
+      
+      // Format the results with additional metadata
+      const formattedResults = results.map((result, index) => ({
+        ...result,
+        theme: `Generated Image ${index + 1}`,
+        format: 'AI Generated',
+        timestamp: new Date().toISOString()
+      }));
+      
+      setGeneratedImages(formattedResults);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error in generation process:', err);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
+  };
+
+  // Handle image download
+  const handleDownload = (base64Image, index) => {
+    const link = document.createElement('a');
+    link.href = base64Image;
+    link.download = `generated-ad-${index}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const funPrompts = [
@@ -86,6 +227,13 @@ function AdCreator() {
           {/* Center Area */}
           <div className="flex-1 flex flex-col items-center justify-center p-10 overflow-y-auto">
 
+            {/* Error Message */}
+            {error && (
+              <div className="w-full max-w-4xl mb-6 bg-pastel-pink/20 border border-pastel-pink/50 rounded-lg p-4 text-red-700">
+                <p className="font-medium">Error: {error}</p>
+              </div>
+            )}
+
             {/* Loading Skeleton */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
@@ -94,19 +242,10 @@ function AdCreator() {
                 ))}
               </div>
             ) : generatedImages.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-                {generatedImages.map((img, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    className="bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition cursor-pointer border border-light-gray/40"
-                  >
-                    <img src={img} alt={`Visual ${idx + 1}`} className="w-full h-auto object-cover" />
-                  </motion.div>
-                ))}
-              </div>
+              <ImageGallery 
+                images={generatedImages} 
+                onDownload={handleDownload} 
+              />
             ) : (
               <div className="text-center py-16">
                 <div className="inline-flex items-center justify-center p-4 bg-pastel-blue/20 rounded-full mb-4">
@@ -139,7 +278,7 @@ function AdCreator() {
                 <div className="relative rounded-xl overflow-hidden shadow border border-light-gray/40">
                   <img src={preview} alt="Uploaded" className="object-contain w-full h-36" />
                   <button
-                    onClick={() => { setPreview(null); setFile(null); }}
+                    onClick={() => { setPreview(null); setFile(null); setUploadedFilePath(null); }}
                     className="absolute top-2 right-2 bg-white p-1 rounded-full shadow"
                   >
                     <X size={16} className="text-pastel-pink" />
@@ -154,7 +293,13 @@ function AdCreator() {
                   <span className="text-sm font-semibold text-pastel-blue">Upload Image</span>
                 </button>
               )}
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+              />
             </div>
 
             {/* Fun Prompts */}
@@ -209,10 +354,14 @@ function AdCreator() {
             />
             <button
               type="submit"
-              disabled={!prompt.trim()}
-              className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal px-6 py-3 rounded-full font-bold shadow-md transition"
+              disabled={!prompt.trim() || loading}
+              className={`px-6 py-3 rounded-full font-bold shadow-md transition ${
+                !prompt.trim() || loading 
+                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                  : 'bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal'
+              }`}
             >
-              {loading ? '...' : 'Generate'}
+              {loading ? 'Generating...' : 'Generate'}
             </button>
           </div>
         </form>
