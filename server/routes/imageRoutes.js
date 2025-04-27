@@ -27,7 +27,15 @@ const upload = multer({
 
 // Routes
 router.post('/upload', upload.single('image'), imageController.uploadImage);
-router.post('/generate', imageController.generateSingleAd);  // Add this line
+
+// Use generateMultipleAds for both single and multiple generations
+// For single image, just set count to 1
+router.post('/generate', (req, res) => {
+  // Ensure count is set to 1 for single image generation
+  req.body.count = 1;
+  return imageController.generateMultipleAds(req, res);
+});
+
 router.post('/generate/multiple', imageController.generateMultipleAds);
 router.get('/themes-formats', imageController.getThemesAndFormats);
 

@@ -1,71 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
- 
+
 @layer base {
   :root {
-    --background: 0 0% 98%; /* off-white */
-    --foreground: 222 47% 11%; /* dark slate */
+    --background: 220 20% 98%;           /* Soft White-Gray */
+    --foreground: 220 15% 20%;            /* Deep Gray Text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
- 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
- 
-    --primary: 220 90% 56%; /* vivid blue */
-    --primary-foreground: 0 0% 100%; /* white */
- 
-    --secondary: 278 80% 60%; /* vivid purple */
-    --secondary-foreground: 0 0% 100%;
- 
-    --muted: 220 16% 92%;
-    --muted-foreground: 222 20% 40%;
- 
-    --accent: 40 98% 60%; /* vivid yellow/orange */
-    --accent-foreground: 222 47% 11%;
- 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --primary: 210 80% 80%;               /* Light Sky Blue */
+    --primary-foreground: 220 20% 15%;    /* Darker Text for buttons */
 
-    --border: 220 16% 85%; /* light blue-gray */
-    --input: 220 16% 85%;
-    --ring: 220 90% 56%;
- 
-    --radius: 0.5rem;
+    --secondary: 280 70% 85%;             /* Light Pink/Purple */
+    --secondary-foreground: 220 20% 15%;
+
+    --accent: 180 60% 75%;                /* Aqua / Mint Accent */
+    --accent-foreground: 220 20% 15%;
+
+    --muted: 220 20% 94%;                 /* Super Light Muted */
+    --muted-foreground: 220 10% 40%;
+
+    --border: 220 10% 88%;
+    --input: 220 10% 88%;
+    --ring: 210 80% 80%; /* Match soft blue */
   }
- 
+
   .dark {
-    --background: 222 47% 11%; /* deep slate */
-    --foreground: 0 0% 100%; /* white */
- 
-    --card: 222 47% 15%;
-    --card-foreground: 0 0% 100%;
- 
-    --popover: 222 47% 15%;
-    --popover-foreground: 0 0% 100%;
- 
-    --primary: 220 90% 66%; /* lighter vivid blue */
+    --background: 222 47% 11%;
+    --foreground: 0 0% 100%;
+    --primary: 220 90% 66%;
     --primary-foreground: 222 47% 11%;
- 
-    --secondary: 278 80% 70%; /* lighter vivid purple */
+    --secondary: 278 80% 70%;
     --secondary-foreground: 222 47% 11%;
- 
-    --muted: 222 20% 20%;
-    --muted-foreground: 0 0% 100%;
- 
-    --accent: 40 98% 60%;
+    --accent: 180 90% 70%;
     --accent-foreground: 222 47% 11%;
- 
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
- 
     --border: 220 16% 30%;
     --input: 220 16% 30%;
     --ring: 220 90% 66%;
   }
 }
- 
+
 @layer base {
   * {
     border-color: hsl(var(--border));
