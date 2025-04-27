@@ -23,6 +23,14 @@ module.exports = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        
+        // New direct color palette
+        'soft-white': '#F9FAFB',
+        'pastel-blue': '#7BDFF2',
+        'soft-lavender': '#D5A9F6',
+        'pastel-pink': '#FFA5C2',
+        'charcoal': '#2A2E35',
+        'light-gray': '#D1D5DB',
       },
       animation: {
         'gradient-x': 'gradient-x 15s ease infinite',
@@ -51,15 +59,13 @@ module.exports = {
           '50%': { transform: 'translateY(-20px)' },
         },
       },
-      backdropBlur: {
-        xs: '2px',
-      },
-      transitionDuration: {
-        '2000': '2000ms',
-        '3000': '3000ms',
+      gradients: {
+        'primary': 'linear-gradient(135deg, #7BDFF2 0%, #D5A9F6 100%)',
+        'secondary': 'linear-gradient(135deg, #D5A9F6 0%, #FFA5C2 100%)',
       },
       backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'primary-gradient': 'linear-gradient(135deg, #7BDFF2 0%, #D5A9F6 100%)',
+        'secondary-gradient': 'linear-gradient(135deg, #D5A9F6 0%, #FFA5C2 100%)',
       },
     },
   },

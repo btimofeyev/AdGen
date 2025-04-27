@@ -4,38 +4,38 @@
 
 @layer base {
   :root {
-    --background: 220 20% 98%;           /* Soft White-Gray */
-    --foreground: 220 15% 20%;            /* Deep Gray Text */
+    --background: 210 20% 98%;          /* Soft White #F9FAFB */
+    --foreground: 220 15% 19%;          /* Deep Charcoal #2A2E35 */
 
-    --primary: 210 80% 80%;               /* Light Sky Blue */
-    --primary-foreground: 220 20% 15%;    /* Darker Text for buttons */
+    --primary: 187 83% 71%;             /* Pastel Sky Blue #7BDFF2 */
+    --primary-foreground: 220 15% 19%;  /* Deep Charcoal for contrast */
 
-    --secondary: 280 70% 85%;             /* Light Pink/Purple */
-    --secondary-foreground: 220 20% 15%;
+    --secondary: 276 81% 82%;           /* Soft Lavender #D5A9F6 */
+    --secondary-foreground: 220 15% 19%;
 
-    --accent: 180 60% 75%;                /* Aqua / Mint Accent */
-    --accent-foreground: 220 20% 15%;
+    --accent: 344 100% 76%;             /* Pastel Pink #FFA5C2 */
+    --accent-foreground: 220 15% 19%;
 
-    --muted: 220 20% 94%;                 /* Super Light Muted */
-    --muted-foreground: 220 10% 40%;
+    --muted: 220 15% 95%;               /* Light Muted */
+    --muted-foreground: 220 14% 45%;
 
-    --border: 220 10% 88%;
-    --input: 220 10% 88%;
-    --ring: 210 80% 80%; /* Match soft blue */
+    --border: 216 14% 84%;              /* Light Gray #D1D5DB */
+    --input: 216 14% 84%;
+    --ring: 187 83% 71%;                /* Match Pastel Sky Blue */
   }
 
   .dark {
-    --background: 222 47% 11%;
+    --background: 222 20% 10%;
     --foreground: 0 0% 100%;
-    --primary: 220 90% 66%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 278 80% 70%;
-    --secondary-foreground: 222 47% 11%;
-    --accent: 180 90% 70%;
-    --accent-foreground: 222 47% 11%;
+    --primary: 187 70% 58%;
+    --primary-foreground: 222 20% 10%;
+    --secondary: 276 70% 70%;
+    --secondary-foreground: 222 20% 10%;
+    --accent: 344 80% 65%;
+    --accent-foreground: 222 20% 10%;
     --border: 220 16% 30%;
     --input: 220 16% 30%;
-    --ring: 220 90% 66%;
+    --ring: 187 70% 58%;
   }
 }
 
@@ -47,4 +47,41 @@
     background: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+}
+
+/* Direct color utility classes for the new palette */
+.bg-soft-white {
+  background-color: #F9FAFB;
+}
+.bg-pastel-blue {
+  background-color: #7BDFF2;
+}
+.bg-soft-lavender {
+  background-color: #D5A9F6;
+}
+.bg-pastel-pink {
+  background-color: #FFA5C2;
+}
+.text-charcoal {
+  color: #2A2E35;
+}
+.text-pastel-blue {
+  color: #7BDFF2;
+}
+.text-soft-lavender {
+  color: #D5A9F6;
+}
+.text-pastel-pink {
+  color: #FFA5C2;
+}
+.border-light-gray {
+  border-color: #D1D5DB;
+}
+
+/* Gradients using our new palette */
+.bg-primary-gradient {
+  background: linear-gradient(135deg, #7BDFF2 0%, #D5A9F6 100%);
+}
+.bg-secondary-gradient {
+  background: linear-gradient(135deg, #D5A9F6 0%, #FFA5C2 100%);
 }

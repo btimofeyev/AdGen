@@ -56,11 +56,13 @@ function AdCreator() {
   };
 
   return (
-    <div className="min-h-screen flex bg-zinc-50 text-foreground">
+    <div className="min-h-screen flex bg-soft-white text-charcoal">
 
       {/* Sidebar */}
-      <div className="w-16 bg-white shadow flex flex-col items-center py-6 space-y-6">
-        <img src="/assets/logo.png" alt="Logo" className="h-10" />
+      <div className="w-16 bg-white shadow flex flex-col items-center py-6 space-y-6 border-r border-light-gray/40">
+        <div className="flex items-center justify-center rounded-full bg-pastel-blue/20 p-2">
+          <ImagePlus size={20} className="text-pastel-blue" />
+        </div>
         <SidebarIcon icon={<User size={20} />} />
         <SidebarIcon icon={<Home size={20} />} />
         <SidebarIcon icon={<Settings size={20} />} />
@@ -73,8 +75,10 @@ function AdCreator() {
       <div className="flex-1 flex flex-col">
 
         {/* Header */}
-        <header className="bg-white px-6 py-4 shadow flex items-center justify-between">
-          <h1 className="text-2xl font-extrabold text-indigo-600">Turn Your Product Into Scroll-Stopping Content</h1>
+        <header className="bg-white px-6 py-4 shadow flex items-center justify-between border-b border-light-gray/40">
+          <h1 className="text-2xl font-extrabold">
+            <span className="text-pastel-blue">SnapSceneAI</span> Studio
+          </h1>
         </header>
 
         <div className="flex flex-1 overflow-hidden">
@@ -86,7 +90,7 @@ function AdCreator() {
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
                 {Array.from({ length: numImages }).map((_, idx) => (
-                  <div key={idx} className="w-full h-64 bg-zinc-200 animate-pulse rounded-xl" />
+                  <div key={idx} className="w-full h-64 bg-soft-white animate-pulse rounded-xl border border-light-gray/30" />
                 ))}
               </div>
             ) : generatedImages.length > 0 ? (
@@ -97,40 +101,57 @@ function AdCreator() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
-                    className="bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition cursor-pointer"
+                    className="bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition cursor-pointer border border-light-gray/40"
                   >
                     <img src={img} alt={`Visual ${idx + 1}`} className="w-full h-auto object-cover" />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="text-gray-400 text-center">Upload an image and create your first visual!</div>
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center p-4 bg-pastel-blue/20 rounded-full mb-4">
+                  <ImagePlus size={32} className="text-pastel-blue" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Create Your First Scene</h3>
+                <p className="text-charcoal/70 max-w-md mx-auto mb-6">
+                  Upload your product image, choose a scene style, and let SnapSceneAI transform it.
+                </p>
+                {!preview && (
+                  <button
+                    className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal px-6 py-3 rounded-full font-semibold shadow-md transition"
+                    onClick={() => fileInputRef.current.click()}
+                  >
+                    <FileUp className="h-4 w-4 mr-2 inline-block" />
+                    Upload Image
+                  </button>
+                )}
+              </div>
             )}
 
           </div>
 
           {/* Right Sidebar */}
-          <div className="w-80 p-6 bg-white border-l border-zinc-200 overflow-y-auto">
+          <div className="w-80 p-6 bg-white border-l border-light-gray/40 overflow-y-auto">
             {/* Upload Thumbnail */}
             <div className="mb-8">
               <h2 className="text-lg font-bold mb-3">Your Product</h2>
               {preview ? (
-                <div className="relative rounded-xl overflow-hidden shadow">
-                  <img src={preview} alt="Uploaded" className="object-contain w-full h-36 rounded-xl" />
+                <div className="relative rounded-xl overflow-hidden shadow border border-light-gray/40">
+                  <img src={preview} alt="Uploaded" className="object-contain w-full h-36" />
                   <button
                     onClick={() => { setPreview(null); setFile(null); }}
                     className="absolute top-2 right-2 bg-white p-1 rounded-full shadow"
                   >
-                    <X size={16} className="text-red-500" />
+                    <X size={16} className="text-pastel-pink" />
                   </button>
                 </div>
               ) : (
                 <button 
-                  className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-indigo-300 p-6 rounded-xl hover:bg-indigo-50 transition"
+                  className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-pastel-blue/30 p-6 rounded-xl hover:bg-pastel-blue/10 transition"
                   onClick={() => fileInputRef.current.click()}
                 >
-                  <ImagePlus size={24} className="text-indigo-500" />
-                  <span className="text-sm font-semibold text-indigo-600">Upload Image</span>
+                  <ImagePlus size={24} className="text-pastel-blue" />
+                  <span className="text-sm font-semibold text-pastel-blue">Upload Image</span>
                 </button>
               )}
               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
@@ -138,13 +159,13 @@ function AdCreator() {
 
             {/* Fun Prompts */}
             <div className="mb-8">
-              <h2 className="text-lg font-bold mb-3">Prompt Ideas</h2>
+              <h2 className="text-lg font-bold mb-3">Scene Ideas</h2>
               <div className="space-y-2">
                 {funPrompts.map((text, idx) => (
                   <button 
                     key={idx}
                     onClick={() => handleFunPromptClick(text)}
-                    className="w-full text-left text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg font-medium transition"
+                    className="w-full text-left text-sm text-pastel-blue bg-pastel-blue/10 hover:bg-pastel-blue/20 p-2 rounded-lg font-medium transition"
                   >
                     {text}
                   </button>
@@ -162,8 +183,8 @@ function AdCreator() {
                     onClick={() => setNumImages(num)}
                     className={`rounded-lg py-2 font-semibold ${
                       numImages === num
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-zinc-100 text-zinc-600 hover:bg-indigo-50'
+                        ? 'bg-pastel-blue text-charcoal'
+                        : 'bg-soft-white text-charcoal hover:bg-pastel-blue/20 border border-light-gray/40'
                     } transition`}
                   >
                     {num}
@@ -176,20 +197,20 @@ function AdCreator() {
         </div>
 
         {/* Prompt Input */}
-        <form onSubmit={handleSubmit} className="bg-white border-t p-6">
+        <form onSubmit={handleSubmit} className="bg-white border-t border-light-gray/40 p-6">
           <div className="max-w-3xl mx-auto flex items-center gap-4">
             <textarea
               ref={promptInputRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows="2"
-              placeholder="Describe your product scene..."
-              className="flex-1 p-4 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              placeholder="Describe your scene..."
+              className="flex-1 p-4 border border-light-gray rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:border-transparent"
             />
             <button
               type="submit"
               disabled={!prompt.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-bold shadow-md transition"
+              className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal px-6 py-3 rounded-full font-bold shadow-md transition"
             >
               {loading ? '...' : 'Generate'}
             </button>
@@ -213,7 +234,7 @@ function AdCreator() {
 
 function SidebarIcon({ icon }) {
   return (
-    <button className="text-indigo-600 hover:bg-indigo-100 p-3 rounded-xl transition">
+    <button className="text-charcoal/70 hover:text-pastel-blue hover:bg-pastel-blue/10 p-3 rounded-xl transition">
       {icon}
     </button>
   );
