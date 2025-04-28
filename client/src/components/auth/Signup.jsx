@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
 
 const Signup = ({ isOpen, onClose }) => {
-  const { signUp, loading, error, resetAuthState } = useAuth();
+  const { signUp, loading, error } = useAuth();
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -14,11 +14,6 @@ const Signup = ({ isOpen, onClose }) => {
   });
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isOpen) resetAuthState();
-    if (!isOpen) setForm({ email: '', password: '', fullName: '', companyName: '', terms: false });
-  }, [isOpen, resetAuthState]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;

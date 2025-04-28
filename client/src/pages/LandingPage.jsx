@@ -1,14 +1,13 @@
 // client/src/pages/LandingPage.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles, Clock, Layout, Palette } from "lucide-react";
 
 const MotionLink = motion(Link);
 
 function LandingPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { scrollYProgress } = useScroll();
   const heroImageY = useTransform(scrollYProgress, [0, 1], [0, -100]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -43,7 +42,6 @@ function LandingPage() {
         <div className="flex gap-4">
           <MotionLink
             to="/signup"
-            state={{ background: location }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-6 py-3 shadow-lg transition"
@@ -52,7 +50,6 @@ function LandingPage() {
           </MotionLink>
           <MotionLink
             to="/login"
-            state={{ background: location }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="bg-white border border-pastel-blue text-pastel-blue font-bold rounded-full px-6 py-3 shadow-lg transition hover:bg-pastel-blue/10"
@@ -201,7 +198,6 @@ function LandingPage() {
           <div className="flex flex-col md:flex-row gap-4 justify-center items-center mt-6">
             <MotionLink
               to="/signup"
-              state={{ background: location }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="bg-white text-charcoal font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-white/90 transition-all"
@@ -210,7 +206,6 @@ function LandingPage() {
             </MotionLink>
             <MotionLink
               to="/login"
-              state={{ background: location }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="bg-pastel-blue text-charcoal font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-pastel-blue/80 transition-all border border-pastel-blue"

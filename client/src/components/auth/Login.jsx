@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
 
 const Login = ({ isOpen, onClose }) => {
-  const { signIn, loading, error, resetAuthState } = useAuth();
+  const { signIn, loading, error } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isOpen) resetAuthState();
-    // Optionally reset form fields too
-    if (!isOpen) setForm({ email: '', password: '' });
-  }, [isOpen, resetAuthState]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,18 +16,12 @@ const Login = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login form submitted', form);
     const { email, password } = form;
-    try {
-      const result = await signIn(email, password);
-      console.log('Sign in result:', result);
-      if (!result?.error) {
-        setSuccess(true);
-        onClose?.();
-        navigate('/create'); // Redirect to create page after login
-      }
-    } catch (err) {
-      console.error('Error in handleSubmit:', err);
+    const result = await signIn(email, password);
+    if (!result?.error) {
+      setSuccess(true);
+      onClose?.();
+      navigate('/'); // Redirect to home or dashboard
     }
   };
 
