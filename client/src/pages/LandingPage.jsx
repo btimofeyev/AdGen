@@ -1,19 +1,15 @@
 // client/src/pages/LandingPage.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Sparkles, Clock, Layout, Palette } from "lucide-react";
-import Navbar from '../components/Navbar'; // Import the Navbar component
 
 const MotionLink = motion(Link);
 
 function LandingPage() {
-  const navigate = useNavigate(); // Keep navigate if needed for other actions
   const { scrollYProgress } = useScroll();
   const heroImageY = useTransform(scrollYProgress, [0, 1], [0, -100]);
   const [currentIndex, setCurrentIndex] = useState(0);
-
-  // NOTE: No logout logic here anymore
 
   const carouselPairs = [
     { before: '/ads/before.webp', after: '/ads/ad1.png' },
@@ -30,7 +26,7 @@ function LandingPage() {
 
   return (
     <div className="min-h-screen bg-soft-white text-charcoal overflow-hidden">
-      <Navbar /> {/* Use the imported Navbar component */}
+      {/* Removed Navbar component from here */}
 
       {/* Hero Section */}
       <section className="flex flex-col items-center justify-center max-w-7xl mx-auto px-6 py-20 text-center">

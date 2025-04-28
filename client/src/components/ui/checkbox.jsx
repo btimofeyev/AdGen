@@ -1,6 +1,10 @@
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
+
+// Use a helper function directly in this file instead of importing from @/lib/utils
+const cn = (...classes) => {
+  return classes.filter(Boolean).join(' ');
+};
 
 const Checkbox = React.forwardRef(({ className, checked, onCheckedChange, ...props }, ref) => {
   const [isChecked, setIsChecked] = React.useState(checked || false);

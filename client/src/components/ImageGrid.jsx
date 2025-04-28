@@ -1,9 +1,11 @@
 // client/src/components/ImageGrid.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Copy } from "lucide-react";
+import { Download, Copy, Trash2 } from "lucide-react";
 
-const ImageGrid = ({ images, onDownload, onCopy, onModalOpen }) => {
+const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
+  const [deletingId, setDeletingId] = useState(null);
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -18,6 +20,23 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen }) => {
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 }
+  };
+
+  // Handle delete with confirmation
+  const handleDelete = (image) => {
+    if (deletingId === image.id) {
+      // Confirm delete
+      onDelete(image.id);
+      setDeletingId(null);
+    } else {
+      // Set this image as deleting, asking for confirmation
+      setDeletingId(image.id);
+      
+      // Auto-reset after 3 seconds
+      setTimeout(() => {
+        setDeletingId(null);
+      }, 3000);
+    }
   };
 
   // If there are no images, show a placeholder message
@@ -38,7 +57,7 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen }) => {
     >
       {images.map((image, index) => (
         <motion.div 
-          key={index}
+          key={image.id || index}
           variants={itemVariants}
           className="relative group"
         >
@@ -63,22 +82,35 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen }) => {
             
             {/* Action buttons at the bottom */}
             {!image.error && (
-              <div className="flex justify-center p-2 gap-3 border-t border-light-gray/20">
+              <div className="flex justify-between p-2 gap-1 border-t border-light-gray/20">
                 <button
                   onClick={() => onDownload(image.base64Image, index)}
-                  className="w-10 h-8 flex items-center justify-center hover:bg-soft-white rounded-md transition-colors"
+                  className="w-8 h-8 flex items-center justify-center hover:bg-soft-white rounded-md transition-colors"
                   title="Download"
                 >
-                  <Download size={18} className="text-charcoal/70 hover:text-charcoal" />
+                  <Download size={16} className="text-charcoal/70 hover:text-charcoal" />
                 </button>
                 
                 <button
                   onClick={() => onCopy(image.base64Image, index)}
-                  className="w-10 h-8 flex items-center justify-center hover:bg-soft-white rounded-md transition-colors"
+                  className="w-8 h-8 flex items-center justify-center hover:bg-soft-white rounded-md transition-colors"
                   title="Copy"
                 >
-                  <Copy size={18} className="text-charcoal/70 hover:text-charcoal" />
+                  <Copy size={16} className="text-charcoal/70 hover:text-charcoal" />
                 </button>
+
+                {onDelete && (
+                  <button
+                    onClick={() => handleDelete(image)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors
+                      ${deletingId === image.id 
+                        ? 'bg-pastel-pink/20 text-pastel-pink animate-pulse' 
+                        : 'hover:bg-soft-white text-charcoal/70 hover:text-pastel-pink'}`}
+                    title={deletingId === image.id ? "Click again to confirm deletion" : "Delete"}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
             )}
           </div>

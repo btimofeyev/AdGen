@@ -52,4 +52,7 @@ router.get('/images/:filename', (req, res) => {
   }
 });
 
+// Serve images from Supabase storage
+router.get('/images/supabase/:id', verifyToken, imageController.getSupabaseImage);
+
 module.exports = router;

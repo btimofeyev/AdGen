@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 const Login = ({ isOpen, onClose }) => {
   const { signIn, loading, error } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
-  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -17,53 +19,98 @@ const Login = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { email, password } = form;
-    const result = await signIn(email, password);
-    if (!result?.error) {
-      setSuccess(true);
-      onClose?.();
-      navigate('/'); // Redirect to home or dashboard
+    
+    try {
+      const result = await signIn(email, password);
+      
+      if (!result?.error) {
+        console.log('Login successful, redirecting to create page');
+        
+        // Close modal if it exists
+        if (onClose) onClose();
+        
+        // Force navigation to create page
+        setTimeout(() => {
+          navigate('/create', { replace: true });
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Login error:', err);
     }
   };
 
   return (
     <AuthModal isOpen={isOpen} onClose={onClose}>
-      <h2 className="text-2xl font-bold mb-6 text-center">Log In</h2>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          required
-          className="rounded-lg border border-light-gray px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          required
-          className="rounded-lg border border-light-gray px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-pastel-blue text-charcoal font-bold rounded-lg px-4 py-2 mt-2 hover:bg-pastel-blue/80 transition"
-        >
-          {loading ? 'Logging in...' : 'Log In'}
-        </button>
-        {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-      </form>
-      <div className="text-center mt-4 text-sm">
-        Don't have an account?{' '}
-        <Link to="/signup" className="text-pastel-blue hover:underline" onClick={onClose}>
-          Sign up
-        </Link>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Welcome Back</h2>
+          <p className="text-charcoal/60">Log in to your SnapSceneAI account</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              required
+              className="w-full"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="password">Password</Label>
+              <Link to="/forgot-password" className="text-xs text-pastel-blue hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+            <Input
+              id="password"
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={handleChange}
+              required
+              className="w-full"
+            />
+          </div>
+          
+          {error && (
+            <div className="p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+          
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? 'Logging in...' : 'Log In'}
+          </Button>
+        </form>
+        
+        <div className="text-center pt-4 border-t border-light-gray/30">
+          <p className="text-sm text-charcoal/70">
+            Don't have an account?{' '}
+            <Link 
+              to="/signup" 
+              className="text-pastel-blue hover:underline font-medium"
+              onClick={() => onClose && onClose()}
+            >
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </AuthModal>
   );
 };
 
-export default Login; 
+export default Login;

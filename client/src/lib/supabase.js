@@ -1,18 +1,27 @@
 // client/src/lib/supabase.js
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration
+// Load Supabase configuration from environment variables
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-console.log('Supabase URL:', supabaseUrl);
-console.log('Supabase Anon Key:', supabaseAnonKey);
+
+// Check if credentials are available
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error(
+    'Missing Supabase credentials. Make sure REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY are set in .env.local'
+  );
+}
+
 // Initialize the Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false // Set this to false for modal-based auth
+    storage: localStorage
   }
 });
+
+// Log initialization status
+console.log(`Supabase client initialized: ${!!supabase}`);
 
 export default supabase;

@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import AuthModal from './AuthModal';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Checkbox } from '../ui/checkbox';
 
 const Signup = ({ isOpen, onClose }) => {
   const { signUp, loading, error } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -13,7 +18,6 @@ const Signup = ({ isOpen, onClose }) => {
     terms: false,
   });
   const [success, setSuccess] = useState(false);
-  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -25,85 +29,157 @@ const Signup = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!form.terms) return;
+    
     const { email, password, fullName, companyName } = form;
-    const result = await signUp(email, password, { fullName });
+    
+    const result = await signUp(email, password, { 
+      full_name: fullName,
+      company_name: companyName 
+    });
+    
     if (!result?.error) {
       setSuccess(true);
-      // Optionally close modal or redirect
+      // Don't navigate yet - they need to confirm email
     }
   };
 
   return (
     <AuthModal isOpen={isOpen} onClose={onClose}>
-      <h2 className="text-2xl font-bold mb-6 text-center">Sign Up</h2>
-      {success ? (
-        <div className="text-center text-green-600 font-medium">Check your email to confirm your account.</div>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className="rounded-lg border border-light-gray px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            required
-            className="rounded-lg border border-light-gray px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-          />
-          <input
-            type="text"
-            name="fullName"
-            placeholder="Full Name"
-            value={form.fullName}
-            onChange={handleChange}
-            className="rounded-lg border border-light-gray px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-          />
-          <input
-            type="text"
-            name="companyName"
-            placeholder="Company Name (optional)"
-            value={form.companyName}
-            onChange={handleChange}
-            className="rounded-lg border border-light-gray px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-          />
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="terms"
-              checked={form.terms}
-              onChange={handleChange}
-              required
-              className="accent-pastel-blue"
-            />
-            I accept the Terms of Service
-          </label>
-          <button
-            type="submit"
-            disabled={loading || !form.terms}
-            className="bg-pastel-blue text-charcoal font-bold rounded-lg px-4 py-2 mt-2 hover:bg-pastel-blue/80 transition"
-          >
-            {loading ? 'Signing up...' : 'Sign Up'}
-          </button>
-          {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-        </form>
-      )}
-      <div className="text-center mt-4 text-sm">
-        Already have an account?{' '}
-        <Link to="/login" className="text-pastel-blue hover:underline" onClick={onClose}>
-          Log in
-        </Link>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Create Your Account</h2>
+          <p className="text-charcoal/60">Join SnapSceneAI and start creating</p>
+        </div>
+        
+        {success ? (
+          <div className="text-center p-6 space-y-4">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-charcoal">Check Your Email</h3>
+            <p className="text-charcoal/70">
+              We've sent a confirmation link to your email address.
+              Please click the link to activate your account.
+            </p>
+            <Button
+              onClick={() => {
+                onClose && onClose();
+                navigate('/');
+              }}
+              className="mt-4"
+            >
+              Back to Home
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={handleChange}
+                required
+                className="w-full"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={handleChange}
+                required
+                className="w-full"
+              />
+              <p className="text-xs text-charcoal/60">
+                Must be at least 8 characters
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                type="text"
+                name="fullName"
+                placeholder="John Doe"
+                value={form.fullName}
+                onChange={handleChange}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="companyName">Company Name (Optional)</Label>
+              <Input
+                id="companyName"
+                type="text"
+                name="companyName"
+                placeholder="Acme Inc."
+                value={form.companyName}
+                onChange={handleChange}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="flex items-start space-x-3 pt-2">
+              <Checkbox
+                id="terms"
+                name="terms"
+                checked={form.terms}
+                onCheckedChange={(checked) => 
+                  setForm(prev => ({ ...prev, terms: checked }))
+                }
+                required
+              />
+              <Label htmlFor="terms" className="text-sm leading-tight cursor-pointer">
+                I agree to the <Link to="/terms" className="text-pastel-blue hover:underline" target="_blank">Terms of Service</Link> and <Link to="/privacy" className="text-pastel-blue hover:underline" target="_blank">Privacy Policy</Link>
+              </Label>
+            </div>
+            
+            {error && (
+              <div className="p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+            
+            <Button
+              type="submit"
+              disabled={loading || !form.terms}
+              className="w-full"
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+          </form>
+        )}
+        
+        <div className="text-center pt-4 border-t border-light-gray/30">
+          <p className="text-sm text-charcoal/70">
+            Already have an account?{' '}
+            <Link 
+              to="/login" 
+              className="text-pastel-blue hover:underline font-medium"
+              onClick={() => onClose && onClose()}
+            >
+              Log in
+            </Link>
+          </p>
+        </div>
       </div>
     </AuthModal>
   );
 };
 
-export default Signup; 
+export default Signup;

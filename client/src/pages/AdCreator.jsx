@@ -1,17 +1,17 @@
 // client/src/pages/AdCreator.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, FileUp, X, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { FileUp, X, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import supabase from '../lib/supabase';
 import { API_URL } from '../config';
+import supabase from '../lib/supabase';
 import ImageModal from '../components/ImageModal';
 import ImageGrid from '../components/ImageGrid';
 
 function AdCreator() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -28,11 +28,51 @@ function AdCreator() {
   const promptInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // Focus on prompt input on component mount
   useEffect(() => {
     if (promptInputRef.current) {
       promptInputRef.current.focus();
     }
-  }, []);
+    
+    // If no user, redirect to login
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  // Effect to load user's saved images when component mounts
+  useEffect(() => {
+    if (user) {
+      loadUserImages();
+    }
+  }, [user]);
+
+  // Function to load user's saved images
+  const loadUserImages = async () => {
+    try {
+      // Get auth token for the request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(`${API_URL}/user/images`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load images');
+      }
+
+      const data = await response.json();
+      if (data.images && data.images.length > 0) {
+        console.log(`Loaded ${data.images.length} images from server`);
+        setGeneratedImages(data.images);
+      }
+    } catch (err) {
+      console.error('Error loading user images:', err);
+    }
+  };
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -54,11 +94,17 @@ function AdCreator() {
     if (!file) return null;
     
     try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const formData = new FormData();
       formData.append('image', file);
       
       const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': session ? `Bearer ${session.access_token}` : ''
+        },
         body: formData,
       });
       
@@ -78,6 +124,9 @@ function AdCreator() {
   // Generate images based on the uploaded image and prompt
   const generateImages = async (filePath) => {
     try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const requestBody = {
         filepath: filePath,
         prompt: prompt,
@@ -88,6 +137,7 @@ function AdCreator() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': session ? `Bearer ${session.access_token}` : ''
         },
         body: JSON.stringify(requestBody),
       });
@@ -108,6 +158,9 @@ function AdCreator() {
   // Generate images from scratch (without reference image)
   const generateImagesFromScratch = async () => {
     try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const requestBody = {
         prompt: prompt,
         count: numImages
@@ -117,6 +170,7 @@ function AdCreator() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': session ? `Bearer ${session.access_token}` : ''
         },
         body: JSON.stringify(requestBody),
       });
@@ -166,7 +220,7 @@ function AdCreator() {
       // Format the results with additional metadata - no explicit labels
       const formattedResults = results.map((result, index) => ({
         ...result,
-        id: Date.now() + index, // Unique ID for each image
+        id: result.id || Date.now() + index, // Use server-provided ID or generate one
         timestamp: new Date().toISOString()
       }));
       
@@ -219,6 +273,35 @@ function AdCreator() {
     setModalOpen(true);
   };
 
+  // Handle image deletion
+  const handleDeleteImage = async (imageId) => {
+    try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError('You must be logged in to delete images');
+        return;
+      }
+      
+      const response = await fetch(`${API_URL}/user/images/${imageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete image');
+      }
+      
+      // Remove the image from the state
+      setGeneratedImages(prev => prev.filter(img => img.id !== imageId));
+    } catch (err) {
+      setError(`Delete error: ${err.message}`);
+    }
+  };
+
   const funPrompts = [
     "Place my product in a cozy living room",
     "Put my product on a marble desk",
@@ -231,22 +314,16 @@ function AdCreator() {
     setPrompt(text);
     promptInputRef.current.focus();
   };
+
   const handleLogout = async () => {
     try {
-      // Try context logout first
-      if (signOut) {
-        await signOut();
-      } else {
-        // Direct fallback if context fails
-        await supabase.auth.signOut();
-      }
-      
-      // Force page refresh to ensure clean state
-      window.location.href = '/';
+      await signOut();
+      navigate('/');
     } catch (error) {
       console.error('Error logging out:', error);
     }
   };
+
   return (
     <div className="min-h-screen flex bg-soft-white text-charcoal">
       {/* Sidebar */}
@@ -255,7 +332,7 @@ function AdCreator() {
           <ImagePlus size={20} className="text-pastel-blue" />
         </div>
         <SidebarIcon icon={<User size={20} />} />
-        <SidebarIcon icon={<Home size={20} />} />
+        <SidebarIcon icon={<Home size={20} />} onClick={() => navigate('/')} />
         <SidebarIcon icon={<Settings size={20} />} />
         <div className="mt-auto">
           <SidebarIcon icon={<LogOut size={20} />} onClick={handleLogout} />
@@ -352,6 +429,7 @@ function AdCreator() {
                     onDownload={handleDownload}
                     onCopy={handleCopyImage}
                     onModalOpen={handleOpenModal}
+                    onDelete={handleDeleteImage}
                   />
                 ) : (
                   <div className="bg-white rounded-lg border border-light-gray/40 p-8 text-center">
