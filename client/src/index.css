@@ -85,3 +85,18 @@
 .bg-secondary-gradient {
   background: linear-gradient(135deg, #D5A9F6 0%, #FFA5C2 100%);
 }
+
+/* Fix for button text color */
+@layer utilities {
+  button {
+    color: #2A2E35;
+  }
+  
+  .card-title {
+    color: #2A2E35 !important;
+  }
+  
+  .card-description {
+    color: #2A2E35 !important;
+  }
+}

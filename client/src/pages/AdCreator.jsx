@@ -10,7 +10,7 @@ import ImageModal from '../components/ImageModal';
 import ImageGrid from '../components/ImageGrid';
 import { Elements } from '@stripe/react-stripe-js';
 import stripePromise from '../lib/stripe';
-import PaymentForm from '../components/PaymentForm';
+import UserCredits from '../components/UserCredits';
 
 function AdCreator() {
   const navigate = useNavigate();
@@ -23,6 +23,7 @@ function AdCreator() {
   const [numImages, setNumImages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
+  const [isLoadingImages, setIsLoadingImages] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState(null);
@@ -54,10 +55,15 @@ function AdCreator() {
   // Function to load user's saved images
   const loadUserImages = async () => {
     try {
+      setIsLoadingImages(true);
       // Get auth token for the request
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setIsLoadingImages(false);
+        return;
+      }
 
+      console.log('Fetching user images...');
       const response = await fetch(`${API_URL}/user/images`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -72,9 +78,15 @@ function AdCreator() {
       if (data.images && data.images.length > 0) {
         console.log(`Loaded ${data.images.length} images from server`);
         setGeneratedImages(data.images);
+      } else {
+        console.log('No images found for this user');
+        setGeneratedImages([]);
       }
     } catch (err) {
       console.error('Error loading user images:', err);
+      setError(`Failed to load your gallery: ${err.message}`);
+    } finally {
+      setIsLoadingImages(false);
     }
   };
 
@@ -386,6 +398,14 @@ function AdCreator() {
             {error && (
               <div className="w-full max-w-5xl mx-auto mb-6 bg-pastel-pink/20 border border-pastel-pink/50 rounded-lg p-4 text-red-700">
                 <p className="font-medium">Error: {error}</p>
+                {error.includes('Failed to load your gallery') && (
+                  <button 
+                    onClick={loadUserImages}
+                    className="mt-2 text-sm bg-pastel-pink/10 hover:bg-pastel-pink/20 px-3 py-1 rounded-md text-pastel-pink transition-colors"
+                  >
+                    Try Again
+                  </button>
+                )}
               </div>
             )}
 
@@ -425,9 +445,25 @@ function AdCreator() {
             {/* Gallery Tab */}
             {activeTab === 'gallery' && (
               <div className="w-full max-w-6xl mx-auto">
-                <h2 className="text-xl font-bold mb-4">Your Generated Visuals</h2>
+                <h2 className="text-xl font-bold mb-4 flex items-center justify-between">
+                  <span>Your Generated Visuals</span>
+                  {!isLoadingImages && (
+                    <button
+                      onClick={loadUserImages}
+                      className="text-sm bg-pastel-blue/10 hover:bg-pastel-blue/20 px-3 py-1 rounded-md text-pastel-blue transition-colors"
+                    >
+                      Refresh
+                    </button>
+                  )}
+                </h2>
                 
-                {generatedImages.length > 0 ? (
+                {isLoadingImages ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+                    {Array.from({ length: 4 }).map((_, idx) => (
+                      <div key={idx} className="aspect-square bg-soft-white animate-pulse rounded-lg border border-light-gray/30" />
+                    ))}
+                  </div>
+                ) : generatedImages.length > 0 ? (
                   <ImageGrid 
                     images={generatedImages} 
                     onDownload={handleDownload}
@@ -547,12 +583,6 @@ function AdCreator() {
             </button>
           </div>
         </form>
-
-        {!paymentComplete && (
-          <Elements stripe={stripePromise}>
-            <PaymentForm amount={999} onSuccess={() => setPaymentComplete(true)} />
-          </Elements>
-        )}
 
       </div>
 

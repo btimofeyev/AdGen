@@ -3,6 +3,9 @@ import React from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import AdCreator from './pages/AdCreator';
+import PricingPage from './pages/PricingPage';
+import AccountPage from './pages/AccountPage';
+
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import ForgotPassword from './components/auth/ForgotPassword';
@@ -35,8 +38,10 @@ function AppRoutes() {
           {/* Protected route */}
           <Route element={<ProtectedRoute />}>
             <Route path="/create" element={<AdCreator />} />
+            <Route path="/account" element={<AccountPage />} />
           </Route>
-          
+        
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/login" element={<LandingPage />} />
           <Route path="/signup" element={<LandingPage />} />
           <Route path="/forgot-password" element={<LandingPage />} />

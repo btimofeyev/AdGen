@@ -1,3 +1,4 @@
+// server/controllers/imageController.js
 const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
@@ -13,7 +14,10 @@ const openai = new OpenAI({
 // Set the correct bucket name
 const BUCKET_NAME = 'scenesnapai';
 
-// Upload image
+// This helps ensure temporary uploads get cleaned up regularly
+const TEMP_FILE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
+
+// Upload image - only temporarily for generation, not for storage
 const uploadImage = async (req, res) => {
   console.log('===== UPLOAD IMAGE REQUEST =====');
   console.log('File details:', req.file ? {
@@ -28,48 +32,13 @@ const uploadImage = async (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  if (req.user) {
-    try {
-      const filePath = req.file.path;
-      const fileBuffer = fs.readFileSync(filePath);
-      const fileName = `${Date.now()}_${req.file.originalname}`;
-      const storagePath = `${req.user.id}/${fileName}`;
-
-      // Upload to Supabase storage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(storagePath, fileBuffer, {
-          contentType: req.file.mimetype,
-          upsert: false
-        });
-
-      if (storageError) {
-        console.error('Supabase storage error:', storageError);
-      } else {
-        console.log('File uploaded to Supabase storage:', storagePath);
-
-        // Save metadata to database
-        const { data: metadataData, error: metadataError } = await supabase
-          .from('user_images')
-          .insert({
-            user_id: req.user.id,
-            storage_path: storagePath,
-            original_filename: req.file.originalname,
-            file_type: req.file.mimetype,
-            metadata: {
-              size: req.file.size,
-              local_path: req.file.path
-            }
-          });
-
-        if (metadataError) {
-          console.error('Error saving image metadata:', metadataError);
-        }
-      }
-    } catch (err) {
-      console.error('Error uploading to Supabase:', err);
-    }
-  }
+  // Mark the file with the current timestamp for cleanup purposes
+  const filePath = req.file.path;
+  fs.writeFileSync(`${filePath}.meta`, JSON.stringify({
+    uploadTime: Date.now(),
+    userID: req.user?.id || 'anonymous',
+    isTemporary: true
+  }));
   
   return res.status(200).json({ 
     message: 'File uploaded successfully',
@@ -136,6 +105,19 @@ const generateMultipleAds = async (req, res) => {
     console.log('Successful generations:', processedResults.filter(r => !r.error).length);
     console.log('Failed generations:', processedResults.filter(r => r.error).length);
     console.log('==============================');
+    
+    // After successful generation, clean up the temporary upload file
+    try {
+      if (filepath && fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        if (fs.existsSync(`${filepath}.meta`)) {
+          fs.unlinkSync(`${filepath}.meta`);
+        }
+        console.log(`Temporary file cleaned up: ${filepath}`);
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up temporary file:', cleanupError);
+    }
     
     return res.status(200).json({
       message: 'Multiple images generated',
@@ -235,9 +217,6 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
     
     const generatedImage = result.data[0].b64_json;
     const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
-    const outputPath = path.join(__dirname, '../uploads', outputFilename);
-    
-    fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
     
     let dbRecord = null;
     let storageUrl = null;
@@ -246,6 +225,7 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       const imageBuffer = Buffer.from(generatedImage, 'base64');
       const storagePath = `${userId}/generated/${outputFilename}`;
       
+      // Store in Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(storagePath, imageBuffer, {
@@ -262,64 +242,30 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
         
         storageUrl = publicUrl;
         
-        // Save to user_images table
+        // Save metadata to database
         const { data, error } = await supabase
-          .from('user_images')
+          .from('generated_images')
           .insert({
             user_id: userId,
+            filename: outputFilename,
+            prompt,
             storage_path: storagePath,
-            original_filename: outputFilename,
-            file_type: 'image/png',
+            base64_image: generatedImage,
             metadata: {
-              prompt,
-              local_path: outputPath,
               size,
-              quality
+              quality,
+              model: "gpt-image-1",
+              generation_time: new Date().toISOString()
             }
           })
           .select()
           .single();
         
         if (error) {
-          console.error('Error saving to user_images:', error);
+          console.error('Error saving to database:', error);
         } else {
           dbRecord = data;
-          console.log('Saved to user_images with ID:', data.id);
-        }
-      }
-      
-      // Now check generated_images schema safely
-      const { data: tableInfo, error: tableError } = await supabase
-        .from('generated_images')
-        .select('*')
-        .limit(1);
-      
-      if (!tableError && Array.isArray(tableInfo) && tableInfo.length > 0) {
-        try {
-          const columnsToInsert = {
-            user_id: userId,
-            filepath: outputPath,
-            filename: outputFilename,
-            prompt
-          };
-          if (tableInfo[0].hasOwnProperty('base64_image')) {
-            columnsToInsert.base64_image = generatedImage;
-          }
-          
-          const { data: genData, error: genError } = await supabase
-            .from('generated_images')
-            .insert(columnsToInsert)
-            .select()
-            .single();
-          
-          if (genError) {
-            console.error('Error saving to generated_images:', genError);
-          } else {
-            dbRecord = genData;
-            console.log('Saved to generated_images with ID:', genData.id);
-          }
-        } catch (err) {
-          console.error('Error in generated_images insert:', err);
+          console.log('Saved to database with ID:', data.id);
         }
       }
     }
@@ -328,9 +274,9 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       id: dbRecord?.id,
       title,
       description: prompt,
-      imageUrl: storageUrl || `/api/images/${outputFilename}`,
+      imageUrl: storageUrl,
       base64Image: `data:image/png;base64,${generatedImage}`,
-      storageUrl
+      prompt
     };
   } catch (error) {
     console.error(`Error generating image:`, error);
@@ -360,9 +306,6 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
     
     const generatedImage = result.data[0].b64_json;
     const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
-    const outputPath = path.join(__dirname, '../uploads', outputFilename);
-    
-    fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
     
     let dbRecord = null;
     let storageUrl = null;
@@ -371,6 +314,7 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       const imageBuffer = Buffer.from(generatedImage, 'base64');
       const storagePath = `${userId}/generated/${outputFilename}`;
       
+      // Store in Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(storagePath, imageBuffer, {
@@ -387,61 +331,30 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
         
         storageUrl = publicUrl;
         
+        // Save to database
         const { data, error } = await supabase
-          .from('user_images')
+          .from('generated_images')
           .insert({
             user_id: userId,
+            filename: outputFilename,
+            prompt,
             storage_path: storagePath,
-            original_filename: outputFilename,
-            file_type: 'image/png',
+            base64_image: generatedImage,
             metadata: {
-              prompt,
-              local_path: outputPath,
               size,
-              quality
+              quality,
+              model: "gpt-image-1",
+              generation_time: new Date().toISOString()
             }
           })
           .select()
           .single();
         
         if (error) {
-          console.error('Error saving to user_images:', error);
+          console.error('Error saving to database:', error);
         } else {
           dbRecord = data;
-          console.log('Saved to user_images with ID:', data.id);
-        }
-      }
-      
-      // Check generated_images for base64 column
-      const { data: tableInfo, error: tableError } = await supabase
-        .from('generated_images')
-        .select('*')
-        .limit(1);
-      
-      if (!tableError && Array.isArray(tableInfo) && tableInfo.length > 0) {
-        try {
-          const cols = {
-            user_id: userId,
-            filepath: outputPath,
-            filename: outputFilename,
-            prompt
-          };
-          if (tableInfo[0].hasOwnProperty('base64_image')) cols.base64_image = generatedImage;
-          
-          const { data: giData, error: giErr } = await supabase
-            .from('generated_images')
-            .insert(cols)
-            .select()
-            .single();
-          
-          if (giErr) {
-            console.error('Error saving to generated_images:', giErr);
-          } else {
-            dbRecord = giData;
-            console.log('Saved to generated_images with ID:', giData.id);
-          }
-        } catch (err) {
-          console.error('Error in generated_images insert:', err);
+          console.log('Saved to database with ID:', data.id);
         }
       }
     }
@@ -450,9 +363,9 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       id: dbRecord?.id,
       title,
       description: prompt,
-      imageUrl: storageUrl || `/api/images/${outputFilename}`,
+      imageUrl: storageUrl,
       base64Image: `data:image/png;base64,${generatedImage}`,
-      storageUrl
+      prompt
     };
   } catch (error) {
     console.error(`Error generating image from scratch:`, error);
@@ -460,94 +373,43 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
   }
 }
 
-// Get user's images
+// Get user's images - Modified to only return generated images
 const getUserImages = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get images from user_images table
-    const { data: userImagesData, error: userImagesError } = await supabase
-      .from('user_images')
+    // Only get images from generated_images table 
+    const { data: generatedImagesData, error: generatedImagesError } = await supabase
+      .from('generated_images')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-    if (userImagesError) {
-      console.error('Error fetching user images:', userImagesError);
+    
+    if (generatedImagesError) {
+      console.error('Error fetching generated images:', generatedImagesError);
       return res.status(500).json({ error: 'Failed to fetch user images' });
     }
 
-    // Check if generated_images table exists
-    const { data: tableInfo, error: tableError } = await supabase
-      .from('generated_images')
-      .select('*')
-      .limit(1);
-
-    let generatedImagesData = [];
-    if (!tableError && Array.isArray(tableInfo) && tableInfo.length > 0) {
-      const { data: genData, error: genError } = await supabase
-        .from('generated_images')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (genError) {
-        console.error('Error fetching generated images:', genError);
-      } else {
-        generatedImagesData = genData;
-      }
-    }
-
-    // Process uploaded user_images
-    const processedUserImages = await Promise.all(userImagesData.map(async img => {
-      let base64Image = null;
-      try {
-        const { data: downloadData, error: downloadError } = await supabase
-          .storage
-          .from(BUCKET_NAME)
-          .download(img.storage_path);
-        if (!downloadError && downloadData) {
-          const buf = Buffer.from(await downloadData.arrayBuffer());
-          base64Image = buf.toString('base64');
-        }
-      } catch (err) {
-        console.error('Error downloading user image:', err);
-      }
-      return {
-        id: img.id,
-        title: img.metadata?.title || 'Uploaded Image',
-        description: img.metadata?.prompt || '',
-        imageUrl: supabase.storage.from(BUCKET_NAME).getPublicUrl(img.storage_path).data.publicUrl,
-        base64Image: base64Image ? `data:${img.file_type};base64,${base64Image}` : null,
-        createdAt: img.created_at
-      };
-    }));
-
     // Process generated_images
-    const processedGeneratedImages = generatedImagesData.map(img => {
-      let base64Image = null;
-      if (img.base64_image) {
-        base64Image = img.base64_image;
-      } else if (img.filepath && fs.existsSync(img.filepath)) {
-        base64Image = fs.readFileSync(img.filepath).toString('base64');
-      }
+    const processedImages = generatedImagesData.map(img => {
       return {
         id: img.id,
-        title: img.filename,
-        description: img.prompt,
-        imageUrl: img.filepath.startsWith('http')
-          ? img.filepath
-          : `/api/images/${img.id}`,
-        base64Image: base64Image ? `data:image/png;base64,${base64Image}` : null,
+        title: img.filename || 'Generated Image',
+        description: img.prompt || '',
+        imageUrl: img.storage_path ? 
+          supabase.storage.from(BUCKET_NAME).getPublicUrl(img.storage_path).data.publicUrl : 
+          null,
+        base64Image: img.base64_image ? 
+          `data:image/png;base64,${img.base64_image}` : 
+          null,
+        prompt: img.prompt,
         createdAt: img.created_at
       };
     });
 
-    // Combine and sort all images by date desc
-    const allImages = [...processedUserImages, ...processedGeneratedImages]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
     return res.status(200).json({
       message: 'User images retrieved successfully',
-      images: allImages
+      images: processedImages
     });
   } catch (error) {
     console.error('Error in getUserImages:', error);
@@ -558,38 +420,50 @@ const getUserImages = async (req, res) => {
   }
 };
 
+// Delete a user image
 const deleteUserImage = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Try deleting from user_images first
-    const { data: ui, error: uiErr } = await supabase
-      .from('user_images')
+    // Get the image data first
+    const { data: imageData, error: getError } = await supabase
+      .from('generated_images')
       .select('storage_path')
       .eq('id', id)
       .eq('user_id', userId)
       .single();
-    if (!uiErr && ui) {
-      await supabase.storage.from(BUCKET_NAME).remove([ui.storage_path]);
-      await supabase.from('user_images').delete().eq('id', id);
-      return res.status(200).json({ message: 'Image deleted successfully' });
-    }
-
-    // Fallback to generated_images
-    const { data: gi, error: giErr } = await supabase
-      .from('generated_images')
-      .select('filepath')
-      .eq('id', id)
-      .eq('user_id', userId)
-      .single();
-    if (giErr || !gi) {
+    
+    if (getError) {
       return res.status(404).json({ error: 'Image not found' });
     }
-    if (fs.existsSync(gi.filepath)) {
-      fs.unlinkSync(gi.filepath);
+    
+    // Delete from storage if path exists
+    if (imageData.storage_path) {
+      const { error: storageError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .remove([imageData.storage_path]);
+      
+      if (storageError) {
+        console.error('Error deleting from storage:', storageError);
+        // Continue anyway to delete the database record
+      }
     }
-    await supabase.from('generated_images').delete().eq('id', id);
+    
+    // Delete the database record
+    const { error: deleteError } = await supabase
+      .from('generated_images')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    
+    if (deleteError) {
+      return res.status(500).json({ 
+        error: 'Failed to delete image record',
+        details: deleteError.message 
+      });
+    }
+    
     return res.status(200).json({ message: 'Image deleted successfully' });
   } catch (error) {
     console.error('Error in deleteUserImage:', error);
@@ -600,28 +474,41 @@ const deleteUserImage = async (req, res) => {
   }
 };
 
+// Get a specific image from Supabase storage
 const getSupabaseImage = async (req, res) => {
   try {
     const { id } = req.params;
     const { data: img, error: imgErr } = await supabase
-      .from('user_images')
-      .select('storage_path, file_type')
+      .from('generated_images')
+      .select('storage_path, base64_image')
       .eq('id', id)
       .single();
+    
     if (imgErr || !img) {
       return res.status(404).json({ error: 'Image not found' });
     }
+    
+    // If we have base64_image data directly in the DB, use it
+    if (img.base64_image) {
+      const buffer = Buffer.from(img.base64_image, 'base64');
+      res.setHeader('Content-Type', 'image/png');
+      return res.send(buffer);
+    }
+    
+    // Otherwise fetch from storage
     const { data: fileData, error: dlErr } = await supabase
       .storage
       .from(BUCKET_NAME)
       .download(img.storage_path);
+      
     if (dlErr) {
       console.error('Error downloading image:', dlErr);
       return res.status(500).json({ error: 'Failed to download image' });
     }
-    res.setHeader('Content-Type', img.file_type || 'image/png');
+    
     const buffer = Buffer.from(await fileData.arrayBuffer());
-    res.send(buffer);
+    res.setHeader('Content-Type', 'image/png');
+    return res.send(buffer);
   } catch (error) {
     console.error('Error in getSupabaseImage:', error);
     return res.status(500).json({
@@ -631,10 +518,26 @@ const getSupabaseImage = async (req, res) => {
   }
 };
 
+// Get themes and formats - Simple version for now
 const getThemesAndFormats = (req, res) => {
-  res.json({ message: "Simplified version doesn't use themes or formats" });
+  res.json({
+    themes: [
+      { id: 'modern', name: 'Modern & Clean' },
+      { id: 'luxury', name: 'Luxury & Premium' },
+      { id: 'playful', name: 'Playful & Fun' },
+      { id: 'natural', name: 'Natural & Organic' },
+      { id: 'tech', name: 'Tech & Innovative' }
+    ],
+    formats: [
+      { id: 'social', name: 'Social Media Post' },
+      { id: 'banner', name: 'Web Banner' },
+      { id: 'product', name: 'Product Showcase' },
+      { id: 'email', name: 'Email Header' }
+    ]
+  });
 };
 
+// Helper function to get MIME type from filepath
 function getMimeType(filepath) {
   const ext = path.extname(filepath).toLowerCase();
   switch (ext) {
@@ -646,11 +549,55 @@ function getMimeType(filepath) {
   }
 }
 
+// Cleanup temporary files - this could be run via a cron job
+const cleanupTemporaryFiles = () => {
+  const uploadsDir = path.join(__dirname, '../uploads');
+  
+  if (!fs.existsSync(uploadsDir)) {
+    return;
+  }
+  
+  fs.readdir(uploadsDir, (err, files) => {
+    if (err) {
+      console.error('Error reading uploads directory:', err);
+      return;
+    }
+    
+    const now = Date.now();
+    files.forEach(file => {
+      const filePath = path.join(uploadsDir, file);
+      // Skip directories and metadata files
+      if (fs.statSync(filePath).isDirectory() || file.endsWith('.meta')) {
+        return;
+      }
+      
+      const metaPath = path.join(uploadsDir, `${file}.meta`);
+      
+      // Check if this is a temporary file
+      if (fs.existsSync(metaPath)) {
+        try {
+          const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          
+          if (metadata.isTemporary && (now - metadata.uploadTime > TEMP_FILE_TTL)) {
+            // Delete the file and its metadata
+            fs.unlinkSync(filePath);
+            fs.unlinkSync(metaPath);
+            console.log(`Cleaned up temporary file: ${file}`);
+          }
+        } catch (err) {
+          console.error(`Error checking temporary file ${file}:`, err);
+        }
+      }
+    });
+  });
+};
+
 module.exports = {
   uploadImage,
   generateMultipleAds,
   getUserImages,
   deleteUserImage,
   getSupabaseImage,
-  getThemesAndFormats
+  getThemesAndFormats,
+  cleanupTemporaryFiles
 };
