@@ -281,6 +281,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Reset auth state (loading and error)
+  const resetAuthState = () => {
+    setLoading(false);
+    setError(null);
+  };
+
   // Value to be provided by context
   const value = {
     user,
@@ -293,6 +299,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     updatePassword,
     updateProfile,
+    resetAuthState,
   };
 
   return (

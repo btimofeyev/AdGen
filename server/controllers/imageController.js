@@ -1,8 +1,8 @@
-// server/controllers/imageController.js
 const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
-const dotenv = require('dotenv'); 
+const dotenv = require('dotenv');
+const supabase = require('../lib/supabase');
 dotenv.config();
 
 // Initialize OpenAI client
@@ -18,6 +18,7 @@ const uploadImage = (req, res) => {
     size: req.file.size,
     mimetype: req.file.mimetype
   } : 'No file');
+  console.log('User:', req.user ? req.user.id : 'Unauthenticated');
   console.log('================================');
 
   if (!req.file) {
@@ -34,12 +35,14 @@ const uploadImage = (req, res) => {
 // Generate multiple ads with just the prompt and count
 const generateMultipleAds = async (req, res) => {
   try {
-    const { filepath, prompt, count = 1 } = req.body;
+    const { filepath, prompt, count = 1, theme, format } = req.body;
+    const userId = req.user ? req.user.id : null;
     
     console.log('===== GENERATE IMAGES REQUEST =====');
     console.log('Filepath:', filepath);
     console.log('User prompt:', prompt);
     console.log('Number of images:', count);
+    console.log('User ID:', userId || 'Not authenticated');
     console.log('===================================');
     
     // If no filepath is provided but prompt is, we'll generate from scratch
@@ -77,9 +80,10 @@ const generateMultipleAds = async (req, res) => {
           imageFile,
           userPrompt,
           `Generated Image ${i+1}`,
-          "Full Image",
+          theme || "Full Image",
           "1024x1024",
-          "high"
+          "high",
+          userId
         ));
       } catch (error) {
         console.error(`Error creating promise for image ${i+1}:`, error);
@@ -125,11 +129,13 @@ const generateMultipleAds = async (req, res) => {
 // Generate multiple images from scratch (no reference image)
 const generateMultipleFromScratch = async (req, res) => {
   try {
-    const { prompt, count = 1 } = req.body;
+    const { prompt, count = 1, theme, format } = req.body;
+    const userId = req.user ? req.user.id : null;
     
     console.log('===== GENERATE FROM SCRATCH =====');
     console.log('User prompt:', prompt);
     console.log('Number of images:', count);
+    console.log('User ID:', userId || 'Not authenticated');
     console.log('================================');
     
     if (!prompt) {
@@ -151,9 +157,10 @@ const generateMultipleFromScratch = async (req, res) => {
         generationPromises.push(generateImageFromScratch(
           userPrompt,
           `Generated Image ${i+1}`,
-          "Full Image",
+          theme || "Full Image",
           "1024x1024",
-          "high"
+          "high",
+          userId
         ));
       } catch (error) {
         console.error(`Error creating promise for image ${i+1}:`, error);
@@ -197,10 +204,11 @@ const generateMultipleFromScratch = async (req, res) => {
 };
 
 // Helper function to generate a single image with reference image
-async function generateImage(imageFile, prompt, title, description, size, quality) {
+async function generateImage(imageFile, prompt, title, theme, size, quality, userId = null) {
   try {
     console.log('===== GENERATING IMAGE WITH REFERENCE =====');
     console.log('Prompt sent to OpenAI API:', prompt);
+    console.log('User ID:', userId || 'Not authenticated');
     console.log('==========================================');
     
     const result = await openai.images.edit({
@@ -217,15 +225,42 @@ async function generateImage(imageFile, prompt, title, description, size, qualit
     console.log('======================================');
     
     const generatedImage = result.data[0].b64_json;
-    const outputPath = path.join(__dirname, '../uploads', `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`);
+    const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+    const outputPath = path.join(__dirname, '../uploads', outputFilename);
     
     // Save the generated image
     fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
     
+    // If user is authenticated, save record to database
+    let dbRecord = null;
+    if (userId) {
+      const { data, error } = await supabase
+        .from('generated_images')
+        .insert({
+          user_id: userId,
+          filepath: outputPath,
+          filename: outputFilename,
+          prompt: prompt,
+          theme: theme,
+          base64_image: generatedImage
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error saving to database:', error);
+      } else {
+        dbRecord = data;
+        console.log('Saved to database with ID:', data.id);
+      }
+    }
+    
     return {
+      id: dbRecord?.id,
       title,
-      description,
-      imageUrl: `/api/images/${path.basename(outputPath)}`,
+      theme,
+      description: prompt,
+      imageUrl: `/api/images/${outputFilename}`,
       base64Image: `data:image/png;base64,${generatedImage}`
     };
   } catch (error) {
@@ -235,10 +270,11 @@ async function generateImage(imageFile, prompt, title, description, size, qualit
 }
 
 // Helper function to generate a single image from scratch
-async function generateImageFromScratch(prompt, title, description, size, quality) {
+async function generateImageFromScratch(prompt, title, theme, size, quality, userId = null) {
   try {
     console.log('===== GENERATING IMAGE FROM SCRATCH =====');
     console.log('Prompt sent to OpenAI API:', prompt);
+    console.log('User ID:', userId || 'Not authenticated');
     console.log('=========================================');
     
     const result = await openai.images.generate({
@@ -254,15 +290,42 @@ async function generateImageFromScratch(prompt, title, description, size, qualit
     console.log('====================================');
     
     const generatedImage = result.data[0].b64_json;
-    const outputPath = path.join(__dirname, '../uploads', `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`);
+    const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+    const outputPath = path.join(__dirname, '../uploads', outputFilename);
     
     // Save the generated image
     fs.writeFileSync(outputPath, Buffer.from(generatedImage, 'base64'));
     
+    // If user is authenticated, save record to database
+    let dbRecord = null;
+    if (userId) {
+      const { data, error } = await supabase
+        .from('generated_images')
+        .insert({
+          user_id: userId,
+          filepath: outputPath,
+          filename: outputFilename,
+          prompt: prompt,
+          theme: theme,
+          base64_image: generatedImage
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error saving to database:', error);
+      } else {
+        dbRecord = data;
+        console.log('Saved to database with ID:', data.id);
+      }
+    }
+    
     return {
+      id: dbRecord?.id,
       title,
-      description,
-      imageUrl: `/api/images/${path.basename(outputPath)}`,
+      theme,
+      description: prompt,
+      imageUrl: `/api/images/${outputFilename}`,
       base64Image: `data:image/png;base64,${generatedImage}`
     };
   } catch (error) {
@@ -270,6 +333,95 @@ async function generateImageFromScratch(prompt, title, description, size, qualit
     throw error;
   }
 }
+
+// Get user's images
+const getUserImages = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get images from Supabase
+    const { data, error } = await supabase
+      .from('generated_images')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching user images:', error);
+      return res.status(500).json({ error: 'Failed to fetch images' });
+    }
+    
+    // Format the response
+    const formattedImages = data.map(img => ({
+      id: img.id,
+      title: 'User Generated Image',
+      theme: img.theme || 'Custom',
+      description: img.prompt,
+      imageUrl: `/api/images/${img.filename}`,
+      base64Image: img.base64_image ? `data:image/png;base64,${img.base64_image}` : null,
+      createdAt: img.created_at
+    }));
+    
+    return res.status(200).json({
+      message: 'User images retrieved successfully',
+      images: formattedImages
+    });
+  } catch (error) {
+    console.error('Error in getUserImages:', error);
+    return res.status(500).json({ 
+      error: 'Failed to retrieve user images',
+      details: error.message
+    });
+  }
+};
+
+// Delete user image
+const deleteUserImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Get the image details first
+    const { data: imageData, error: fetchError } = await supabase
+      .from('generated_images')
+      .select('filename, filepath')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error fetching image details:', fetchError);
+      return res.status(404).json({ error: 'Image not found' });
+    }
+    
+    // Delete from the database
+    const { error: deleteError } = await supabase
+      .from('generated_images')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    
+    if (deleteError) {
+      console.error('Error deleting image from database:', deleteError);
+      return res.status(500).json({ error: 'Failed to delete image' });
+    }
+    
+    // Remove the file from filesystem if it exists
+    if (imageData.filepath && fs.existsSync(imageData.filepath)) {
+      fs.unlinkSync(imageData.filepath);
+    }
+    
+    return res.status(200).json({
+      message: 'Image deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error in deleteUserImage:', error);
+    return res.status(500).json({ 
+      error: 'Failed to delete image',
+      details: error.message
+    });
+  }
+};
 
 // Helper function to get MIME type
 function getMimeType(filepath) {
@@ -287,5 +439,7 @@ function getMimeType(filepath) {
 module.exports = {
   uploadImage,
   generateMultipleAds,
+  getUserImages,
+  deleteUserImage,
   getThemesAndFormats: (req, res) => res.json({ message: "Simplified version doesn't use themes or formats" })
 };

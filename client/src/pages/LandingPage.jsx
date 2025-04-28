@@ -1,11 +1,14 @@
 // client/src/pages/LandingPage.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, Clock, Layout, Palette } from "lucide-react";
+
+const MotionLink = motion(Link);
 
 function LandingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { scrollYProgress } = useScroll();
   const heroImageY = useTransform(scrollYProgress, [0, 1], [0, -100]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -37,14 +40,26 @@ function LandingPage() {
           <Sparkles className="h-6 w-6 text-pastel-blue mr-2" />
           <span className="text-2xl font-bold">SnapSceneAI</span>
         </div>
-        <motion.button
-          onClick={() => navigate('/create')}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-6 py-3 shadow-lg transition"
-        >
-          Get Started
-        </motion.button>
+        <div className="flex gap-4">
+          <MotionLink
+            to="/signup"
+            state={{ background: location }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-6 py-3 shadow-lg transition"
+          >
+            Get Started
+          </MotionLink>
+          <MotionLink
+            to="/login"
+            state={{ background: location }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-white border border-pastel-blue text-pastel-blue font-bold rounded-full px-6 py-3 shadow-lg transition hover:bg-pastel-blue/10"
+          >
+            Log In
+          </MotionLink>
+        </div>
       </motion.header>
 
       {/* Hero Section with Before/After Carousel */}
@@ -183,14 +198,26 @@ function LandingPage() {
         <div className="max-w-4xl mx-auto px-6">
           <h2 className="text-4xl md:text-5xl font-extrabold mb-6">Sell Smarter. Create Faster. Look Better.</h2>
           <p className="text-lg mb-10 text-charcoal/80">Don't let bad photos cost you sales. Boost your store's success in minutes.</p>
-          <motion.button
-            onClick={() => navigate('/create')}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="mt-6 bg-white text-charcoal font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-white/90 transition-all"
-          >
-            Start Free Today
-          </motion.button>
+          <div className="flex flex-col md:flex-row gap-4 justify-center items-center mt-6">
+            <MotionLink
+              to="/signup"
+              state={{ background: location }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="bg-white text-charcoal font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-white/90 transition-all"
+            >
+              Start Free Today
+            </MotionLink>
+            <MotionLink
+              to="/login"
+              state={{ background: location }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="bg-pastel-blue text-charcoal font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-pastel-blue/80 transition-all border border-pastel-blue"
+            >
+              Log In
+            </MotionLink>
+          </div>
         </div>
       </section>
 

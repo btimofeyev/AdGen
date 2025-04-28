@@ -1,10 +1,10 @@
-// server/routes/imageRoutes.js
 const express = require('express');
 const router = express.Router();
 const imageController = require('../controllers/imageController');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { verifyToken, optionalAuth } = require('../middleware/auth');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -25,19 +25,20 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Routes
-router.post('/upload', upload.single('image'), imageController.uploadImage);
+// Public routes
+router.get('/themes-formats', imageController.getThemesAndFormats);
 
-// Use generateMultipleAds for both single and multiple generations
-// For single image, just set count to 1
-router.post('/generate', (req, res) => {
-  // Ensure count is set to 1 for single image generation
+// Routes that work with optional authentication
+router.post('/upload', optionalAuth, upload.single('image'), imageController.uploadImage);
+router.post('/generate', optionalAuth, (req, res) => {
   req.body.count = 1;
   return imageController.generateMultipleAds(req, res);
 });
+router.post('/generate/multiple', optionalAuth, imageController.generateMultipleAds);
 
-router.post('/generate/multiple', imageController.generateMultipleAds);
-router.get('/themes-formats', imageController.getThemesAndFormats);
+// Protected routes - require authentication
+router.get('/user/images', verifyToken, imageController.getUserImages);
+router.delete('/user/images/:id', verifyToken, imageController.deleteUserImage);
 
 // Serve generated images
 router.get('/images/:filename', (req, res) => {
