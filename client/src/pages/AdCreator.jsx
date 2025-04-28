@@ -8,6 +8,9 @@ import { API_URL } from '../config';
 import supabase from '../lib/supabase';
 import ImageModal from '../components/ImageModal';
 import ImageGrid from '../components/ImageGrid';
+import { Elements } from '@stripe/react-stripe-js';
+import stripePromise from '../lib/stripe';
+import PaymentForm from '../components/PaymentForm';
 
 function AdCreator() {
   const navigate = useNavigate();
@@ -24,6 +27,7 @@ function AdCreator() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('create'); 
+  const [paymentComplete, setPaymentComplete] = useState(false);
 
   const promptInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -543,6 +547,12 @@ function AdCreator() {
             </button>
           </div>
         </form>
+
+        {!paymentComplete && (
+          <Elements stripe={stripePromise}>
+            <PaymentForm amount={999} onSuccess={() => setPaymentComplete(true)} />
+          </Elements>
+        )}
 
       </div>
 
