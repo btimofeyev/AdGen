@@ -10,33 +10,33 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
-  // This allows modals to overlay the current page
-  const state = location.state;
-  const background = state && state.background;
-
-  // Modal open if path is /login or /signup
-  const isLoginOpen = location.pathname === '/login';
-  const isSignupOpen = location.pathname === '/signup';
+  const background = location.state?.background;
 
   const handleClose = () => {
-    if (background) {
-      navigate(-1);
-    } else {
-      navigate('/');
-    }
+    navigate(-1);
   };
 
   return (
     <>
       <Routes location={background || location}>
         <Route path="/" element={<LandingPage />} />
+        
+        {/* Protected route */}
         <Route element={<ProtectedRoute />}>
           <Route path="/create" element={<AdCreator />} />
         </Route>
+        
+        <Route path="/login" element={<LandingPage />} />
+        <Route path="/signup" element={<LandingPage />} />
       </Routes>
+      
       {/* Modals */}
-      <Login isOpen={isLoginOpen} onClose={handleClose} />
-      <Signup isOpen={isSignupOpen} onClose={handleClose} />
+      {location.pathname === '/login' && (
+        <Login isOpen={true} onClose={handleClose} />
+      )}
+      {location.pathname === '/signup' && (
+        <Signup isOpen={true} onClose={handleClose} />
+      )}
     </>
   );
 }

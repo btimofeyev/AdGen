@@ -2,11 +2,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, FileUp, X, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import supabase from '../lib/supabase';
 import { API_URL } from '../config';
 import ImageModal from '../components/ImageModal';
 import ImageGrid from '../components/ImageGrid';
 
 function AdCreator() {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [uploadedFilePath, setUploadedFilePath] = useState(null);
@@ -225,10 +231,24 @@ function AdCreator() {
     setPrompt(text);
     promptInputRef.current.focus();
   };
-
+  const handleLogout = async () => {
+    try {
+      // Try context logout first
+      if (signOut) {
+        await signOut();
+      } else {
+        // Direct fallback if context fails
+        await supabase.auth.signOut();
+      }
+      
+      // Force page refresh to ensure clean state
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
   return (
     <div className="min-h-screen flex bg-soft-white text-charcoal">
-
       {/* Sidebar */}
       <div className="w-16 bg-white shadow flex flex-col items-center py-6 space-y-6 border-r border-light-gray/40">
         <div className="flex items-center justify-center rounded-full bg-pastel-blue/20 p-2">
@@ -238,7 +258,7 @@ function AdCreator() {
         <SidebarIcon icon={<Home size={20} />} />
         <SidebarIcon icon={<Settings size={20} />} />
         <div className="mt-auto">
-          <SidebarIcon icon={<LogOut size={20} />} />
+          <SidebarIcon icon={<LogOut size={20} />} onClick={handleLogout} />
         </div>
       </div>
 
@@ -460,9 +480,12 @@ function AdCreator() {
   );
 }
 
-function SidebarIcon({ icon }) {
+function SidebarIcon({ icon, onClick }) {
   return (
-    <button className="text-charcoal/70 hover:text-pastel-blue hover:bg-pastel-blue/10 p-3 rounded-xl transition">
+    <button 
+      className="text-charcoal/70 hover:text-pastel-blue hover:bg-pastel-blue/10 p-3 rounded-xl transition"
+      onClick={onClick}
+    >
       {icon}
     </button>
   );
