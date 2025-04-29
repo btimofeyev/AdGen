@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import { CreditCard, AlertCircle } from 'lucide-react';
+import { CreditCard, AlertCircle, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 import { API_URL } from '../config';
 import supabase from '../lib/supabase';
@@ -98,11 +98,22 @@ const UserCredits = () => {
   // Display different UI based on subscription status
   const hasSubscription = subscription && subscription.status === 'active';
   const isLowOnCredits = credits && credits.available_credits < 5;
+  
+  // Calculate total credits (available + used)
+  const totalCredits = credits?.total_credits_received || 0;
+  const usedCredits = credits?.credits_used || 0;
+  const availableCredits = credits?.available_credits || 0;
+  
+  // Calculate percentage for progress bar (used out of total)
+  const usagePercentage = totalCredits > 0 ? (usedCredits / totalCredits) * 100 : 0;
 
   return (
     <div className="bg-white rounded-lg border border-light-gray/40 shadow-sm p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-charcoal">Your Credits</h3>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center">
+          <Zap className="h-4 w-4 mr-2 text-pastel-blue" />
+          <h3 className="text-sm font-medium text-charcoal">Available Credits</h3>
+        </div>
         {hasSubscription && (
           <div className="flex items-center bg-pastel-blue/10 rounded-full px-2 py-0.5">
             <CreditCard className="h-3 w-3 mr-1 text-pastel-blue" />
@@ -113,12 +124,24 @@ const UserCredits = () => {
         )}
       </div>
       
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-2xl font-bold text-charcoal">
-          {credits ? credits.available_credits : 0}
+      {/* Credit Count with large number */}
+      <div className="mb-2">
+        <div className="text-3xl font-bold text-charcoal">
+          {availableCredits}
         </div>
-        <div className="text-xs text-charcoal/60">
-          {credits ? credits.total_credits_received : 0} total / {credits ? credits.credits_used : 0} used
+      </div>
+      
+      {/* Progress Bar */}
+      <div className="mb-3">
+        <div className="h-2 w-full bg-light-gray/30 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-pastel-blue to-soft-lavender rounded-full"
+            style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+          ></div>
+        </div>
+        <div className="flex justify-between mt-1 text-xs text-charcoal/60">
+          <span>{usedCredits} used</span>
+          <span>{totalCredits} total</span>
         </div>
       </div>
       

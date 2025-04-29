@@ -83,7 +83,7 @@ const PricingPage = () => {
         credits: 15,
         popular: false,
         buttonText: 'Buy Pack',
-        stripePriceId: 'price_1RIzGMDNIr7FzuSF8hVxsDz1'
+        stripePriceId: 'price_1RJ1aHRVRbMS6hrOBUEYvKXZ'
       },
       {
         id: 'starter',
@@ -108,7 +108,7 @@ const PricingPage = () => {
         credits: 200,
         popular: true,
         buttonText: 'Upgrade to Pro',
-        stripePriceId: 'price_1RIzLQDNIr7FzuSFJ57hDFyF'
+        stripePriceId: 'price_1RJ1anRVRbMS6hrOvsGHgxIR'
       },
       {
         id: 'premium',
@@ -116,11 +116,11 @@ const PricingPage = () => {
         price: 99.99,
         interval: 'month',
         description: 'For full-time sellers, agencies, and power users',
-        features: ['400 images per month', 'All scene options', 'Premium resolution', 'Priority support'],
-        credits: 400,
+        features: ['500 images per month', 'All scene options', 'Premium resolution', 'Priority support'],
+        credits: 500,
         popular: false,
         buttonText: 'Go Premium',
-        stripePriceId: 'price_1RIzMMDNIr7FzuSFNrGFFH19'
+        stripePriceId: 'price_1RJ1bHRVRbMS6hrOuNxr8lgy'
       }
     ];
   
@@ -157,20 +157,22 @@ const PricingPage = () => {
             </p>
           </div>
   
-          {/* Free Trial CTA Banner */}
-          <div className="mb-16 bg-gradient-to-r from-pastel-blue/20 to-soft-lavender/20 rounded-xl p-8 shadow-sm border border-pastel-blue/20 max-w-4xl mx-auto text-center">
-            <h2 className="text-2xl font-bold mb-3">Try It Free</h2>
-            <p className="text-lg mb-5">
-              Start with 3 free images and see the magic for yourself. No credit card required!
-            </p>
-            <button 
-              onClick={() => navigate('/signup')}
-              className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold text-lg py-3 px-8 rounded-full shadow-md inline-flex items-center"
-            >
-              <Sparkles className="h-5 w-5 mr-2" />
-              <span className="text-charcoal">Sign Up Free</span>
-            </button>
-          </div>
+          {/* Free Trial CTA Banner - Only show if user is not logged in */}
+          {!user && (
+            <div className="mb-16 bg-gradient-to-r from-pastel-blue/20 to-soft-lavender/20 rounded-xl p-8 shadow-sm border border-pastel-blue/20 max-w-4xl mx-auto text-center">
+              <h2 className="text-2xl font-bold mb-3">Try It Free</h2>
+              <p className="text-lg mb-5">
+                Start with 3 free images and see the magic for yourself. No credit card required!
+              </p>
+              <button 
+                onClick={() => navigate('/signup')}
+                className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold text-lg py-3 px-8 rounded-full shadow-md inline-flex items-center"
+              >
+                <Sparkles className="h-5 w-5 mr-2" />
+                <span className="text-charcoal">Sign Up Free</span>
+              </button>
+            </div>
+          )}
   
           {checkoutMode ? (
             <div className="max-w-md mx-auto">

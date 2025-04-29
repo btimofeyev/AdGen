@@ -1,10 +1,10 @@
 // server/controllers/subscriptionController.js
-const stripe = require("../lib/stripe");
+
+const stripe   = require("../lib/stripe");
 const supabase = require("../lib/supabase");
-const dotenv = require("dotenv");
+const dotenv   = require("dotenv");
 dotenv.config();
 
-// Create a Stripe Checkout session
 exports.createCheckoutSession = async (req, res) => {
   try {
     const { priceId, planId, successUrl, cancelUrl } = req.body;
@@ -14,188 +14,244 @@ exports.createCheckoutSession = async (req, res) => {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
-    // Get user email from session
-    const { data } = await supabase.auth.getSession();
-    let userEmail;
-
-    if (data?.session?.user?.email) {
-      userEmail = data.session.user.email;
-    } else if (req.user.email) {
-      userEmail = req.user.email;
-    } else {
+    // 1) Get the user's email
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userEmail = sessionData?.session?.user?.email || req.user.email;
+    if (!userEmail) {
       return res.status(500).json({ error: "Failed to fetch user email" });
     }
 
-    // Check if customer exists in Stripe
-    let { data: customerData } = await supabase
+    // 2) Lookup or create the Stripe customer
+    let { data: pdRow } = await supabase
       .from("user_payment_details")
       .select("stripe_customer_id")
       .eq("user_id", userId)
       .maybeSingle();
 
-    let customerId;
-
-    // If customer doesn't exist, create one
-    if (!customerData?.stripe_customer_id) {
+    let customerId = pdRow?.stripe_customer_id;
+    if (!customerId) {
       const customer = await stripe.customers.create({
         email: userEmail,
         metadata: { user_id: userId },
       });
-
       customerId = customer.id;
-
-      // Save customer ID to database
       await supabase.from("user_payment_details").insert({
         user_id: userId,
         stripe_customer_id: customerId,
       });
-    } else {
-      customerId = customerData.stripe_customer_id;
     }
 
-    // Create Checkout Session
+    // 3) Create the Checkout Session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: planId !== "pay-as-you-go" ? "subscription" : "payment",
+      mode: planId === "pay-as-you-go" ? "payment" : "subscription",
       success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: {
-        user_id: userId,
-        plan_id: planId,
-      },
+      cancel_url:  cancelUrl,
+      metadata:   { user_id: userId, plan_id: planId },
     });
 
     res.status(200).json({ sessionId: session.id });
-  } catch (error) {
-    console.error("Error creating checkout session:", error);
-    res.status(500).json({ error: error.message });
+
+  } catch (err) {
+    console.error("Error creating checkout session:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Handle webhook events from Stripe
+
+/**
+ * Handle incoming Stripe webhooks
+ */
 exports.webhookHandler = async (req, res) => {
-    // 1️⃣ Pull the header into `sig`
-    const sig = req.headers["stripe-signature"];
-    console.log("⚡️ Stripe webhook hit!", {
+  const sig = req.headers["stripe-signature"];
+  console.log("⚡️ Stripe webhook hit!", { sig, rawBodyLength: req.body.length });
+
+  if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("⚠️ Missing webhook signature or secret");
+    return res.status(400).send("Missing webhook signature or secret");
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
       sig,
-      rawBodyLength: req.body.length,
-    });
-  
-    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-      console.error(
-        "⚠️ Missing webhook signature or secret",
-        { sig, secret: process.env.STRIPE_WEBHOOK_SECRET }
-      );
-      return res.status(400).send("Missing webhook signature or secret");
-    }
-  
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      console.error("⚠️ Signature validation failed:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-  
-    console.log("✅ Webhook validated, type =", event.type);
-  // Handle checkout.session.completed event
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error("⚠️ Signature validation failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  console.log("✅ Webhook validated, type =", event.type);
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const userId = session.metadata.user_id;
-    const planId = session.metadata.plan_id;
+    const userId  = session.metadata.user_id;
+    const plan    = session.metadata.plan_id;
 
-    if (!userId || !planId) {
+    if (!userId || !plan) {
       console.error("Missing metadata in session:", session.id);
       return res.status(200).json({ received: true });
     }
+    console.log(`Processing checkout for user ${userId}, plan ${plan}`);
 
-    try {
-      // Determine credits based on plan
-      let credits = 0;
-      if (planId === "pay-as-you-go") {
-        credits = 15;
-      } else if (planId === "starter") {
-        credits = 50;
-      } else if (planId === "pro") {
-        credits = 200;
-      } else if (planId === "premium") {
-        credits = 400;
-      }
+    // ---- 1) Award credits ----
+    const creditMap = {
+      "pay-as-you-go": 15,
+      starter:         50,
+      pro:            200,
+      premium:        500,
+    };
+    const creditAmount = creditMap[plan] || 0;
 
-      if (credits <= 0) {
-        return res.status(200).json({ received: true });
-      }
-
-      // Add credits to user's account
-      const { data: userData } = await supabase
-        .from("user_credits")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      // Insert or update user credits
-      if (!userData) {
-        await supabase.from("user_credits").insert({
-          user_id: userId,
-          available_credits: credits,
-          total_credits_received: credits,
-          credits_used: 0,
-        });
-      } else {
-        await supabase
+    if (creditAmount > 0) {
+      try {
+        // fetch or create user_credits
+        const { data: creditsRow, error: creditsErr } = await supabase
           .from("user_credits")
-          .update({
-            available_credits: userData.available_credits + credits,
-            total_credits_received: userData.total_credits_received + credits,
-          })
-          .eq("user_id", userId);
-      }
+          .select("available_credits, total_credits_received")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (creditsErr) throw creditsErr;
 
-      // For subscriptions, create subscription record
-      if (session.mode === "subscription" && session.subscription) {
-        const subscription = await stripe.subscriptions.retrieve(
-          session.subscription
-        );
+        if (creditsRow) {
+          // update
+          await supabase
+            .from("user_credits")
+            .update({
+              available_credits:       creditsRow.available_credits + creditAmount,
+              total_credits_received:  creditsRow.total_credits_received + creditAmount,
+              updated_at:              new Date().toISOString(),
+            })
+            .eq("user_id", userId);
+          console.log(`Updated credits for ${userId}`);
+        } else {
+          // insert
+          await supabase
+            .from("user_credits")
+            .insert({
+              user_id:                userId,
+              available_credits:      creditAmount,
+              total_credits_received: creditAmount,
+              credits_used:           0,
+              created_at:             new Date().toISOString(),
+              updated_at:             new Date().toISOString(),
+            });
+          console.log(`Created credits for ${userId}`);
+        }
 
-        await supabase.from("subscriptions").insert({
-          user_id: userId,
-          stripe_subscription_id: subscription.id,
-          plan_id: planId,
-          status: subscription.status,
-          current_period_start: new Date(
-            subscription.current_period_start * 1000
-          ).toISOString(),
-          current_period_end: new Date(
-            subscription.current_period_end * 1000
-          ).toISOString(),
-          metadata: { credits_per_cycle: credits },
+        // record transaction
+        await supabase.from("credit_transactions").insert({
+          user_id:          userId,
+          amount:           creditAmount,
+          transaction_type: session.mode === "subscription"
+                             ? "subscription_creation"
+                             : "purchase",
+          metadata:         { plan_id: plan, session_id: session.id },
+          created_at:       new Date().toISOString(),
         });
-      }
+        console.log(`Recorded transaction for ${creditAmount} credits`);
 
-      // Record the transaction
-      await supabase.from("credit_transactions").insert({
-        user_id: userId,
-        amount: credits,
-        transaction_type:
-          session.mode === "subscription"
-            ? "subscription_creation"
-            : "purchase",
-        metadata: {
-          session_id: session.id,
-          plan_id: planId,
-        },
-      });
-    } catch (error) {
-      console.error("Error processing checkout session:", error);
+      } catch (err) {
+        console.error("Credits & transactions error:", err);
+      }
+    }
+
+    // ---- 2) Persist subscription record ----
+    if (session.mode === "subscription" && session.subscription) {
+      try {
+        // fetch full subscription details from Stripe
+        const stripeSub = await stripe.subscriptions.retrieve(session.subscription);
+        console.log(`Stripe sub: ${stripeSub.id} (${stripeSub.status})`);
+
+        // call your stored proc
+        const { error: rpcErr } = await supabase.rpc("create_subscription", {
+          in_user_id:      userId,
+          in_sub_id:       stripeSub.id,
+          in_plan_id:      plan,
+          in_status:       stripeSub.status,
+          in_period_start: new Date(stripeSub.current_period_start * 1000).toISOString(),
+          in_period_end:   new Date(stripeSub.current_period_end   * 1000).toISOString(),
+        });
+        if (rpcErr) throw rpcErr;
+        console.log("Created subscription via RPC");
+
+        // Optionally fetch back *one* subscription record for logging
+        const { data: rows, error: fetchErr } = await supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("stripe_subscription_id", stripeSub.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (fetchErr) throw fetchErr;
+        console.log("Subscription record:", rows[0]);
+
+      } catch (err) {
+        console.error("Subscription creation error:", err);
+      }
     }
   }
 
-  // Return a 200 response to acknowledge receipt of the event
-  res.status(200).json({ received: true });
+  // Always ACK
+  return res.status(200).json({ received: true });
 };
+exports.createPortalSession = async (req, res) => {
+    try {
+      const userId = req.user.id;
+  
+      // 1) Look up the Stripe customer ID
+      const { data, error } = await supabase
+        .from("user_payment_details")
+        .select("stripe_customer_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data?.stripe_customer_id) {
+        return res.status(404).json({ error: "No Stripe customer on file" });
+      }
+  
+      // 2) Determine a fully‐qualified base URL
+      let baseUrl = process.env.FRONTEND_URL;
+      if (!baseUrl || !/^https?:\/\//.test(baseUrl)) {
+        // fallback to the Origin header or construct from protocol+host
+        baseUrl = req.get("origin") || `${req.protocol}://${req.get("host")}`;
+        console.warn("FRONTEND_URL invalid or unset, falling back to:", baseUrl);
+      }
+      // strip trailing slash
+      baseUrl = baseUrl.replace(/\/$/, "");
+  
+      // 3) Create the Stripe Billing Portal session
+      const session = await stripe.billingPortal.sessions.create({
+        customer:   data.stripe_customer_id,
+        return_url: `${baseUrl}/account`
+      });
+  
+      console.log("Redirecting to Stripe Portal with return_url:", `${baseUrl}/account`);
+      return res.json({ url: session.url });
+    } catch (err) {
+      console.error("Error creating portal session:", err);
+      return res.status(500).json({ error: "Failed to create portal session" });
+    }
+  };
+  exports.verifySession = async (req, res) => {
+    try {
+      const { session_id } = req.query;
+      if (!session_id) {
+        return res.status(400).json({ error: 'Missing session_id' });
+      }
+      // Retrieve the Checkout Session from Stripe:
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ['subscription']
+      });
+      res.json({
+        message: 'Session verified',
+        session
+      });
+    } catch (err) {
+      console.error('Error verifying session:', err);
+      res.status(500).json({ error: 'Failed to verify session' });
+    }
+  };

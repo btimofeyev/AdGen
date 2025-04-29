@@ -19,8 +19,8 @@ function AppRoutes() {
   const navigate = useNavigate();
   const background = location.state?.background;
   
-  // Check if we're on the create page
-  const isCreatePage = location.pathname === '/create';
+  // Check if we're on the create page or account page
+  const isAppPage = location.pathname === '/create' || location.pathname === '/account';
 
   const handleClose = () => {
     navigate(-1);
@@ -28,10 +28,10 @@ function AppRoutes() {
 
   return (
     <>
-      {/* Only render Navbar if not on the create page */}
-      {!isCreatePage && <Navbar />}
+      {/* Only render Navbar if not on the create or account page */}
+      {!isAppPage && <Navbar />}
       
-      <div className={`flex-grow ${!isCreatePage ? 'min-h-screen' : ''}`}>
+      <div className={`flex-grow ${!isAppPage ? 'min-h-screen' : ''}`}>
         <Routes location={background || location}>
           <Route path="/" element={<LandingPage />} />
           

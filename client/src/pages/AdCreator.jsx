@@ -1,8 +1,8 @@
 // client/src/pages/AdCreator.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileUp, X, ImagePlus, Home, User, Settings, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { FileUp, X, ImagePlus, Home, User, Settings, LogOut, Zap } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import supabase from '../lib/supabase';
@@ -15,6 +15,9 @@ import UserCredits from '../components/UserCredits';
 function AdCreator() {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
+
+  const [credits, setCredits] = useState(null);
+  const [creditsLoading, setCreditsLoading] = useState(true);
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -29,6 +32,10 @@ function AdCreator() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('create'); 
   const [paymentComplete, setPaymentComplete] = useState(false);
+
+  // State for tracking if a generation request is in progress
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastRequestTime, setLastRequestTime] = useState(0);
 
   const promptInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -49,8 +56,48 @@ function AdCreator() {
   useEffect(() => {
     if (user) {
       loadUserImages();
+      loadUserCredits();
     }
   }, [user]);
+
+  // Load user credits
+  const loadUserCredits = async () => {
+    try {
+      setCreditsLoading(true);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setCreditsLoading(false);
+        return;
+      }
+      
+      const response = await fetch(`${API_URL}/users/credits`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // No credits found, this is okay for new users
+          setCredits({
+            available_credits: 0,
+            total_credits_received: 0,
+            credits_used: 0
+          });
+        } else {
+          throw new Error('Failed to load credits');
+        }
+      } else {
+        const data = await response.json();
+        setCredits(data);
+      }
+    } catch (err) {
+      console.error('Error loading user credits:', err);
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
 
   // Function to load user's saved images
   const loadUserImages = async () => {
@@ -143,11 +190,17 @@ function AdCreator() {
       // Get auth token
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Generate a unique ID for this request
+      const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      
       const requestBody = {
         filepath: filePath,
         prompt: prompt,
-        count: numImages
+        count: numImages,
+        requestId // Include request ID for server-side tracking
       };
+      
+      console.log(`Sending image generation request: ${requestId} for ${numImages} images`);
       
       const response = await fetch(`${API_URL}/generate/multiple`, {
         method: 'POST',
@@ -160,6 +213,9 @@ function AdCreator() {
       
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 402) {
+          throw new Error(`Insufficient credits: ${errorData.message || 'You need more credits to generate these images.'}`);
+        }
         throw new Error(errorData.error || 'Failed to generate images');
       }
       
@@ -177,10 +233,16 @@ function AdCreator() {
       // Get auth token
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Generate a unique ID for this request
+      const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      
       const requestBody = {
         prompt: prompt,
-        count: numImages
+        count: numImages,
+        requestId // Include request ID for server-side tracking
       };
+      
+      console.log(`Sending image generation from scratch request: ${requestId} for ${numImages} images`);
       
       const response = await fetch(`${API_URL}/generate/multiple`, {
         method: 'POST',
@@ -193,6 +255,9 @@ function AdCreator() {
       
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 402) {
+          throw new Error(`Insufficient credits: ${errorData.message || 'You need more credits to generate these images.'}`);
+        }
         throw new Error(errorData.error || 'Failed to generate images');
       }
       
@@ -206,17 +271,54 @@ function AdCreator() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (loading || isSubmitting) {
+      console.log('Generation already in progress, ignoring duplicate submission');
+      return;
+    }
+    
+    // Add debounce to prevent accidental double clicks (300ms)
+    const now = Date.now();
+    if (now - lastRequestTime < 300) {
+      console.log('Request throttled, please wait');
+      return;
+    }
+    setLastRequestTime(now);
+    
     if (!prompt.trim()) return;
     
+    // Check if user has enough credits first
+    if (credits && numImages > credits.available_credits) {
+      setError(`You don't have enough credits. You have ${credits.available_credits} credits but need ${numImages} to generate these images.`);
+      return;
+    }
+    
+    // Generate a request ID on the client side
+    const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    console.log(`Starting generation request: ${requestId} for ${numImages} images`);
+    
     setLoading(true);
+    setIsSubmitting(true);
     setError(null);
     
     try {
       let results = [];
       
       if (file) {
-        // Upload image first if not already uploaded
-        const filePath = uploadedFilePath || await uploadImage();
+        // For subsequent requests, always re-upload to ensure server has the file
+        let filePath = null;
+        
+        // If we're quickly generating images again, always upload a fresh copy
+        // This ensures we don't run into file cleanup issues on the server
+        if (now - lastRequestTime < 30000) { // If within 30 seconds of last request
+          console.log('Recent request detected - uploading fresh copy of image');
+          filePath = await uploadImage();
+        } else {
+          // Try to use existing path first, but fall back to re-uploading
+          filePath = uploadedFilePath || await uploadImage();
+        }
+        
         if (!filePath) throw new Error('Failed to upload image');
         
         // Save the file path for future generations
@@ -243,6 +345,9 @@ function AdCreator() {
       // Add new images to existing ones
       setGeneratedImages(prev => [...formattedResults, ...prev]);
       
+      // Refresh credits after generation
+      loadUserCredits();
+      
       // Switch to gallery tab
       setActiveTab('gallery');
     } catch (err) {
@@ -250,6 +355,7 @@ function AdCreator() {
       console.error('Error in generation process:', err);
     } finally {
       setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -347,7 +453,7 @@ function AdCreator() {
         <div className="flex items-center justify-center rounded-full bg-pastel-blue/20 p-2">
           <ImagePlus size={20} className="text-pastel-blue" />
         </div>
-        <SidebarIcon icon={<User size={20} />} />
+        <SidebarIcon icon={<User size={20} />} onClick={() => navigate('/account')} />
         <SidebarIcon icon={<Home size={20} />} onClick={() => navigate('/')} />
         <SidebarIcon icon={<Settings size={20} />} />
         <div className="mt-auto">
@@ -360,9 +466,20 @@ function AdCreator() {
 
         {/* Header */}
         <header className="bg-white px-6 py-4 shadow flex items-center justify-between border-b border-light-gray/40">
-          <h1 className="text-2xl font-extrabold">
-            <span className="text-pastel-blue">SnapSceneAI</span> Studio
-          </h1>
+          <div className="flex items-center">
+            <h1 className="text-2xl font-extrabold">
+              <span className="text-pastel-blue">SnapSceneAI</span> Studio
+            </h1>
+            
+            {/* Credits Quick View */}
+            {!creditsLoading && credits && (
+              <Link to="/account" className="ml-6 flex items-center text-sm bg-pastel-blue/10 hover:bg-pastel-blue/20 px-3 py-1 rounded-full transition">
+                <Zap size={14} className="text-pastel-blue mr-1" />
+                <span className="font-medium">{credits.available_credits}</span>
+                <span className="text-charcoal/60 ml-1">credits</span>
+              </Link>
+            )}
+          </div>
           
           {/* Tabs */}
           <div className="flex space-x-1 bg-soft-white rounded-lg p-1">
@@ -489,6 +606,11 @@ function AdCreator() {
 
           {/* Right Sidebar */}
           <div className="w-80 p-6 bg-white border-l border-light-gray/40 overflow-y-auto">
+            {/* Credit Usage */}
+            <div className="mb-8">
+              <UserCredits />
+            </div>
+            
             {/* Upload Thumbnail */}
             <div className="mb-8">
               <h2 className="text-lg font-bold mb-3">Your Product</h2>
@@ -539,6 +661,36 @@ function AdCreator() {
             {/* Number of Images Selector */}
             <div>
               <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
+              
+              {/* Credit Status Indicator */}
+              {!creditsLoading && credits && (
+                <div className={`mb-3 p-2 rounded-lg text-sm ${
+                  credits.available_credits < numImages 
+                    ? 'bg-red-100 text-red-700 border border-red-200' 
+                    : credits.available_credits < 5
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : 'bg-green-100 text-green-700 border border-green-200'
+                }`}>
+                  <div className="flex items-center">
+                    <Zap size={14} className="mr-1 flex-shrink-0" />
+                    <span>
+                      {credits.available_credits < numImages 
+                        ? `Need ${numImages - credits.available_credits} more credit${numImages - credits.available_credits !== 1 ? 's' : ''}` 
+                        : `${credits.available_credits} credit${credits.available_credits !== 1 ? 's' : ''} available`
+                      }
+                    </span>
+                  </div>
+                  {credits.available_credits < numImages && (
+                    <Link 
+                      to="/account" 
+                      className="mt-1 block text-center w-full px-2 py-1 bg-white rounded text-xs font-medium shadow-sm hover:bg-gray-50"
+                    >
+                      Get More Credits
+                    </Link>
+                  )}
+                </div>
+              )}
+              
               <div className="grid grid-cols-4 gap-2">
                 {[1, 2, 3, 4].map((num) => (
                   <button
@@ -554,6 +706,11 @@ function AdCreator() {
                   </button>
                 ))}
               </div>
+              
+              {/* Credit cost explanation */}
+              <p className="text-xs text-charcoal/60 mt-2">
+                Each image costs 1 credit
+              </p>
             </div>
 
           </div>
