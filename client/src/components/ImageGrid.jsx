@@ -1,7 +1,7 @@
 // client/src/components/ImageGrid.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Copy, Trash2 } from "lucide-react";
+import { Download, Copy, Trash2, Clock } from "lucide-react";
 
 const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
   const [deletingId, setDeletingId] = useState(null);
@@ -39,6 +39,17 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
     }
   };
 
+  // Get expiration status styling
+  const getExpirationStyle = (daysRemaining) => {
+    if (daysRemaining <= 1) {
+      return 'bg-pastel-pink/20 text-pastel-pink'; // Expiring soon
+    } else if (daysRemaining <= 3) {
+      return 'bg-amber-100 text-amber-700'; // Warning
+    } else {
+      return 'bg-pastel-blue/10 text-pastel-blue'; // Normal
+    }
+  };
+
   // If there are no images, show a placeholder message
   if (!images || images.length === 0) {
     return (
@@ -72,11 +83,21 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
                   <p className="text-xs text-red-500">Error: {image.error}</p>
                 </div>
               ) : (
-                <img 
-                  src={image.base64Image} 
-                  alt={`Generated image ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img 
+                    src={image.base64Image} 
+                    alt={`Generated image ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* Expiration badge */}
+                  {image.daysRemaining !== undefined && (
+                    <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-xs font-medium flex items-center ${getExpirationStyle(image.daysRemaining)}`}>
+                      <Clock size={12} className="mr-1" />
+                      {image.expirationText || `${image.daysRemaining}d`}
+                    </div>
+                  )}
+                </>
               )}
             </div>
             

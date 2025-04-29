@@ -334,6 +334,10 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       const imageBuffer = Buffer.from(generatedImage, 'base64');
       const storagePath = `${userId}/generated/${outputFilename}`;
       
+      // Calculate expiration date (7 days from now)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
       // Store in Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -351,7 +355,7 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
         
         storageUrl = publicUrl;
         
-        // Save metadata to database
+        // Save metadata to database with expiration
         const { data, error } = await supabase
           .from('generated_images')
           .insert({
@@ -365,7 +369,8 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
               quality,
               model: "gpt-image-1",
               generation_time: new Date().toISOString()
-            }
+            },
+            expires_at: expiresAt.toISOString() // Add expiration date
           })
           .select()
           .single();
@@ -375,6 +380,7 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
         } else {
           dbRecord = data;
           console.log('Saved to database with ID:', data.id);
+          console.log('Image will expire on:', expiresAt.toISOString());
         }
       }
     }
@@ -385,7 +391,9 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       description: prompt,
       imageUrl: storageUrl,
       base64Image: `data:image/png;base64,${generatedImage}`,
-      prompt
+      prompt,
+      created_at: dbRecord?.created_at || new Date().toISOString(),
+      expires_at: dbRecord?.expires_at || expiresAt.toISOString()
     };
   } catch (error) {
     console.error(`Error generating image:`, error);
@@ -423,6 +431,10 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       const imageBuffer = Buffer.from(generatedImage, 'base64');
       const storagePath = `${userId}/generated/${outputFilename}`;
       
+      // Calculate expiration date (7 days from now)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
       // Store in Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -440,7 +452,7 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
         
         storageUrl = publicUrl;
         
-        // Save to database
+        // Save to database with expiration
         const { data, error } = await supabase
           .from('generated_images')
           .insert({
@@ -454,7 +466,8 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
               quality,
               model: "gpt-image-1",
               generation_time: new Date().toISOString()
-            }
+            },
+            expires_at: expiresAt.toISOString() // Add expiration date
           })
           .select()
           .single();
@@ -464,6 +477,7 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
         } else {
           dbRecord = data;
           console.log('Saved to database with ID:', data.id);
+          console.log('Image will expire on:', expiresAt.toISOString());
         }
       }
     }
@@ -474,7 +488,9 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       description: prompt,
       imageUrl: storageUrl,
       base64Image: `data:image/png;base64,${generatedImage}`,
-      prompt
+      prompt,
+      created_at: dbRecord?.created_at || new Date().toISOString(),
+      expires_at: dbRecord?.expires_at || expiresAt.toISOString()
     };
   } catch (error) {
     console.error(`Error generating image from scratch:`, error);
@@ -501,6 +517,11 @@ const getUserImages = async (req, res) => {
 
     // Process generated_images
     const processedImages = generatedImagesData.map(img => {
+      // Calculate days remaining until expiration
+      const now = new Date();
+      const expiresAt = new Date(img.expires_at);
+      const daysRemaining = Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)));
+      
       return {
         id: img.id,
         title: img.filename || 'Generated Image',
@@ -512,7 +533,12 @@ const getUserImages = async (req, res) => {
           `data:image/png;base64,${img.base64_image}` : 
           null,
         prompt: img.prompt,
-        createdAt: img.created_at
+        created_at: img.created_at,
+        expires_at: img.expires_at,
+        daysRemaining: daysRemaining,
+        expirationText: daysRemaining === 0 ? 'Expires today' : 
+                        daysRemaining === 1 ? 'Expires tomorrow' : 
+                        `Expires in ${daysRemaining} days`
       };
     });
 
@@ -589,12 +615,19 @@ const getSupabaseImage = async (req, res) => {
     const { id } = req.params;
     const { data: img, error: imgErr } = await supabase
       .from('generated_images')
-      .select('storage_path, base64_image')
+      .select('storage_path, base64_image, expires_at')
       .eq('id', id)
       .single();
     
     if (imgErr || !img) {
       return res.status(404).json({ error: 'Image not found' });
+    }
+    
+    // Check if image has expired
+    const now = new Date();
+    const expiresAt = new Date(img.expires_at);
+    if (now > expiresAt) {
+      return res.status(410).json({ error: 'Image has expired and is no longer available' });
     }
     
     // If we have base64_image data directly in the DB, use it
@@ -658,7 +691,70 @@ function getMimeType(filepath) {
   }
 }
 
-// Cleanup temporary files - this could be run via a cron job
+// Cleanup expired images - can be called from a scheduled job
+const cleanupExpiredImages = async () => {
+  console.log('Starting cleanup of expired generated images...');
+  const now = new Date().toISOString();
+  
+  try {
+    // Get expired images
+    const { data: expiredImages, error: fetchError } = await supabase
+      .from('generated_images')
+      .select('id, storage_path')
+      .lt('expires_at', now);
+    
+    if (fetchError) {
+      console.error('Error fetching expired images:', fetchError);
+      return { success: false, error: fetchError, deletedCount: 0 };
+    }
+    
+    if (!expiredImages || expiredImages.length === 0) {
+      console.log('No expired images found');
+      return { success: true, deletedCount: 0 };
+    }
+    
+    console.log(`Found ${expiredImages.length} expired images to delete`);
+    
+    // Extract storage paths for deletion
+    const storagePaths = expiredImages
+      .filter(img => img.storage_path)
+      .map(img => img.storage_path);
+    
+    // Delete from storage if there are any paths
+    if (storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .remove(storagePaths);
+      
+      if (storageError) {
+        console.error('Error deleting from storage:', storageError);
+        // Continue with DB deletion even if storage deletion failed
+      } else {
+        console.log(`Deleted ${storagePaths.length} images from storage`);
+      }
+    }
+    
+    // Delete from database
+    const expiredIds = expiredImages.map(img => img.id);
+    const { error: deleteError } = await supabase
+      .from('generated_images')
+      .delete()
+      .in('id', expiredIds);
+    
+    if (deleteError) {
+      console.error('Error deleting expired images from database:', deleteError);
+      return { success: false, error: deleteError, deletedCount: 0 };
+    }
+    
+    console.log(`Successfully deleted ${expiredImages.length} expired images`);
+    return { success: true, deletedCount: expiredImages.length };
+  } catch (error) {
+    console.error('Error in cleanupExpiredImages:', error);
+    return { success: false, error, deletedCount: 0 };
+  }
+};
+
+// Cleanup temporary files
 const cleanupTemporaryFiles = () => {
   const uploadsDir = path.join(__dirname, '../uploads');
   
@@ -713,5 +809,6 @@ module.exports = {
   deleteUserImage,
   getSupabaseImage,
   getThemesAndFormats,
-  cleanupTemporaryFiles
+  cleanupTemporaryFiles,
+  cleanupExpiredImages // Export the new function for scheduled jobs
 };

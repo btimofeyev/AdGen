@@ -19,3 +19,6 @@
 # Uploaded and generated images
 /server/uploads/*
 !/server/uploads/.gitkeep
+
+# Supabase files
+client/public/ads/SceneSnapAI*
