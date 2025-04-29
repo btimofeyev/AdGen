@@ -22,7 +22,7 @@ exports.getCurrentSubscription = async (req, res) => {
     }
     
     if (!subscription) {
-      return res.status(404).json({ message: 'No active subscription found' });
+      return res.status(200).json({ message: 'No active subscription found', subscription: null });
     }
     
     // If we have a Stripe subscription ID, get the latest details from Stripe
@@ -105,13 +105,41 @@ exports.getUserCredits = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get user's credit information
-    const credits = await creditUtils.getUserCredits(userId);
+    // Check if user has credits
+    const { data: credits, error } = await supabase
+      .from('user_credits')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
     
-    if (!credits) {
-      return res.status(404).json({ error: 'No credits found' });
+    if (error) {
+      console.error('Error fetching user credits:', error);
+      return res.status(500).json({ error: 'Failed to fetch user credits' });
     }
     
+    // If no credits record exists, create one with 0 credits
+    if (!credits) {
+      // Create a new user_credits record
+      const { data: newCredits, error: insertError } = await supabase
+        .from('user_credits')
+        .insert({
+          user_id: userId,
+          available_credits: 0,
+          total_credits_received: 0,
+          credits_used: 0
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Error creating user credits:', insertError);
+        return res.status(500).json({ error: 'Failed to create user credits' });
+      }
+      
+      return res.status(200).json(newCredits);
+    }
+    
+    // Return existing credits
     res.status(200).json(credits);
   } catch (error) {
     console.error('Error getting user credits:', error);
@@ -126,10 +154,24 @@ exports.getTransactionHistory = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = parseInt(req.query.offset, 10) || 0;
     
-    const transactions = await creditUtils.getTransactionHistory(userId, limit, offset);
+    const { data: transactions, error } = await supabase
+      .from('credit_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
     
-    if (!transactions) {
-      return res.status(404).json({ error: 'No transactions found' });
+    if (error) {
+      console.error('Error fetching transaction history:', error);
+      return res.status(500).json({ error: 'Failed to fetch transaction history' });
+    }
+    
+    // If no transactions, return empty array
+    if (!transactions || transactions.length === 0) {
+      return res.status(200).json({
+        transactions: [],
+        pagination: { limit, offset, total: 0 }
+      });
     }
     
     res.status(200).json({
@@ -145,4 +187,3 @@ exports.getTransactionHistory = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch transaction history' });
   }
 };
-

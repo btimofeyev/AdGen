@@ -13,7 +13,7 @@ async function hasEnoughCredits(userId, requiredCredits = 1) {
       .from('user_credits')
       .select('available_credits')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error('Error checking user credits:', error);
@@ -21,7 +21,7 @@ async function hasEnoughCredits(userId, requiredCredits = 1) {
     }
     
     if (!data) {
-      console.error('No credit record found for user:', userId);
+      // User has no credits record
       return false;
     }
     
@@ -42,17 +42,35 @@ async function hasEnoughCredits(userId, requiredCredits = 1) {
  */
 async function deductCredits(userId, amount = 1, reason = 'image_generation', metadata = {}) {
   try {
-    // Start a Supabase transaction
-    const { data: updatedCredits, error: updateError } = await supabase.rpc(
-      'deduct_user_credits',
-      { 
-        p_user_id: userId,
-        p_amount: amount
-      }
-    );
+    // Check if user has a credit record
+    const { data: existingCredits, error: fetchError } = await supabase
+      .from('user_credits')
+      .select('available_credits, credits_used')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (fetchError) {
+      console.error('Error fetching user credits:', fetchError);
+      return false;
+    }
+    
+    // If no credit record or not enough credits, return false
+    if (!existingCredits || existingCredits.available_credits < amount) {
+      return false;
+    }
+    
+    // Update credits - manually instead of using RPC function
+    const { error: updateError } = await supabase
+      .from('user_credits')
+      .update({
+        available_credits: existingCredits.available_credits - amount,
+        credits_used: existingCredits.credits_used + amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
     
     if (updateError) {
-      console.error('Error deducting credits:', updateError);
+      console.error('Error updating credits:', updateError);
       return false;
     }
     
@@ -89,11 +107,21 @@ async function getUserCredits(userId) {
       .from('user_credits')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error('Error fetching user credits:', error);
       return null;
+    }
+    
+    // If no credits record, return default
+    if (!data) {
+      return {
+        user_id: userId,
+        available_credits: 0,
+        total_credits_received: 0,
+        credits_used: 0
+      };
     }
     
     return data;
@@ -146,7 +174,8 @@ async function addCredits(userId, amount, reason = 'manual_addition', metadata =
         .from('user_credits')
         .update({
           available_credits: existingCredits.available_credits + amount,
-          total_credits_received: existingCredits.total_credits_received + amount
+          total_credits_received: existingCredits.total_credits_received + amount,
+          updated_at: new Date().toISOString()
         })
         .eq('user_id', userId);
       
@@ -201,7 +230,7 @@ async function getTransactionHistory(userId, limit = 10, offset = 0) {
       return null;
     }
     
-    return data;
+    return data || [];
   } catch (error) {
     console.error('Error in getTransactionHistory:', error);
     return null;

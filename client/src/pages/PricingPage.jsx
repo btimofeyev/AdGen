@@ -95,7 +95,8 @@ const PricingPage = () => {
         credits: 50,
         popular: false,
         buttonText: 'Start Monthly',
-        stripePriceId: 'price_1RIzJHDNIr7FzuSFi90pGJBM'
+        stripePriceId: 'price_1RJ1aVRVRbMS6hrOaneJKHTj'
+        
       },
       {
         id: 'pro',

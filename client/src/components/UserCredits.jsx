@@ -35,23 +35,37 @@ const UserCredits = () => {
         });
         
         if (!creditsResponse.ok) {
-          const errorData = await creditsResponse.json();
-          throw new Error(errorData.error || 'Failed to fetch credits');
+          const creditsData = await creditsResponse.json();
+          if (creditsResponse.status === 404) {
+            // No credits found, this is okay for new users
+            setCredits({
+              available_credits: 0,
+              total_credits_received: 0,
+              credits_used: 0
+            });
+          } else {
+            throw new Error(creditsData.error || 'Failed to fetch credits');
+          }
+        } else {
+          const creditsData = await creditsResponse.json();
+          setCredits(creditsData);
         }
         
-        const creditsData = await creditsResponse.json();
-        setCredits(creditsData);
-        
         // Fetch subscription information
-        const subResponse = await fetch(`${API_URL}/subscriptions/current`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
+        try {
+          const subResponse = await fetch(`${API_URL}/users/subscription`, {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            }
+          });
+          
+          if (subResponse.ok) {
+            const subData = await subResponse.json();
+            setSubscription(subData.subscription);
           }
-        });
-        
-        if (subResponse.ok) {
-          const subData = await subResponse.json();
-          setSubscription(subData.subscription);
+        } catch (subErr) {
+          console.error('Subscription fetch error:', subErr);
+          // Don't fail the whole component if just subscription fetch fails
         }
       } catch (err) {
         console.error('Error fetching user data:', err);
@@ -81,22 +95,9 @@ const UserCredits = () => {
     );
   }
 
-  if (!credits) {
-    return (
-      <div className="flex flex-col bg-white rounded-lg border border-light-gray/40 shadow-sm p-4">
-        <p className="text-sm text-charcoal/70 mb-2">No credits available</p>
-        <Link to="/pricing">
-          <Button variant="outline" size="sm" className="w-full">
-            Get Credits
-          </Button>
-        </Link>
-      </div>
-    );
-  }
-
   // Display different UI based on subscription status
   const hasSubscription = subscription && subscription.status === 'active';
-  const isLowOnCredits = credits.available_credits < 5;
+  const isLowOnCredits = credits && credits.available_credits < 5;
 
   return (
     <div className="bg-white rounded-lg border border-light-gray/40 shadow-sm p-4">
@@ -106,7 +107,7 @@ const UserCredits = () => {
           <div className="flex items-center bg-pastel-blue/10 rounded-full px-2 py-0.5">
             <CreditCard className="h-3 w-3 mr-1 text-pastel-blue" />
             <span className="text-xs text-pastel-blue font-medium">
-              {subscription.plan_id.charAt(0).toUpperCase() + subscription.plan_id.slice(1)}
+              {subscription.plan_id ? subscription.plan_id.charAt(0).toUpperCase() + subscription.plan_id.slice(1) : 'Subscription'}
             </span>
           </div>
         )}
@@ -114,10 +115,10 @@ const UserCredits = () => {
       
       <div className="flex items-center justify-between mb-3">
         <div className="text-2xl font-bold text-charcoal">
-          {credits.available_credits}
+          {credits ? credits.available_credits : 0}
         </div>
         <div className="text-xs text-charcoal/60">
-          {credits.total_credits_received} total / {credits.credits_used} used
+          {credits ? credits.total_credits_received : 0} total / {credits ? credits.credits_used : 0} used
         </div>
       </div>
       
@@ -130,7 +131,7 @@ const UserCredits = () => {
       
       {hasSubscription ? (
         <div className="text-xs text-charcoal/70 mb-3">
-          Your {subscription.plan_id} plan renews on {new Date(subscription.current_period_end).toLocaleDateString()}
+          Your {subscription.plan_id} plan renews on {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'upcoming billing date'}
         </div>
       ) : (
         <Link to="/pricing">
