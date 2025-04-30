@@ -336,18 +336,21 @@ function AdCreator() {
         .toString(36)
         .substring(2, 8)}`;
   
+      // Remove the quality parameter - it will be set on the backend
       const requestBody = {
-        filepaths: filePaths, // Now an array of file paths
+        filepaths: filePaths, // Array of file paths
         prompt: prompt,
         count: numImages,
         requestId,
-        size: imageSize, // Add the selected image size
-        quality: "high"   // Always set to high quality
+        size: imageSize, // This is the correct size parameter
       };
   
       console.log(
         `Sending multi-image generation request: ${requestId} for ${numImages} images with ${filePaths.length} reference images at size ${imageSize}`
       );
+  
+      // Confirm the size is in the request body
+      console.log('Request body:', JSON.stringify(requestBody));
   
       const response = await fetch(`${API_URL}/generate/multiple-references`, {
         method: "POST",
@@ -378,6 +381,7 @@ function AdCreator() {
       return [];
     }
   };
+  
 
   // Generate images from scratch - unchanged
   const generateImagesFromScratch = async () => {
@@ -394,8 +398,7 @@ function AdCreator() {
         prompt: prompt,
         count: numImages,
         requestId,
-        size: imageSize, 
-        quality: "high"   
+        size: imageSize,   
       };
   
       console.log(
@@ -944,6 +947,15 @@ const SidebarContent = useMemo(
 
   return (
     <div className="min-h-screen flex bg-[#181A20] text-gray-100">
+      {/* Always render the hidden file input for uploads */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/png,image/jpeg,image/jpg,image/webp"
+        multiple
+      />
       {/* Sidebar */}
       <div className="w-16 bg-[#23262F] shadow flex flex-col items-center py-6 space-y-6 border-r border-[#23262F]/60">
         <div className="flex items-center justify-center rounded-full bg-pastel-blue/20 p-2">

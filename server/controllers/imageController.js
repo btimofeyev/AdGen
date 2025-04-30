@@ -71,7 +71,7 @@ const uploadImages = async (req, res) => {
 // Generate multiple ads with multiple reference images
 const generateWithMultipleReferences = async (req, res) => {
   try {
-    const { filepaths, prompt, count = 1, size = "1024x1024", quality = "high", requestId: clientRequestId } = req.body;
+    const { filepaths, prompt, count = 1, size = "1024x1024", quality = "low", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
     // Create unique request ID
@@ -186,14 +186,23 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
       imageFiles.push(imageFile);
     }
     
+    // Add console.log to verify parameters
+    console.log('OpenAI edit request parameters:', {
+      model: "gpt-image-1",
+      imageCount: imageFiles.length,
+      prompt,
+      size,
+      quality
+    });
+    
     // Call OpenAI API with multiple images
     const result = await openai.images.edit({
       model: "gpt-image-1",
       image: imageFiles, // Pass array of images
       prompt,
       n: 1,
-      size,
-      quality
+      size: size, // Make sure this is exactly as requested
+      quality: quality
     });
     
     const generatedImage = result.data[0].b64_json;
@@ -238,6 +247,7 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
     };
   } catch (error) {
     console.error('Error generating image with multiple references:', error);
+    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 }
@@ -245,7 +255,7 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
 // Generate multiple ads with prompt and count (single reference image)
 const generateMultipleAds = async (req, res) => {
   try {
-    const { filepath, prompt, count = 1, size = "1024x1024", quality = "high", requestId: clientRequestId } = req.body;
+    const { filepath, prompt, count = 1, size = "1024x1024", quality = "low", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
     // Create unique request ID
@@ -341,7 +351,7 @@ const generateMultipleAds = async (req, res) => {
 // Generate multiple images from scratch (no reference image)
 const generateMultipleFromScratch = async (req, res) => {
   try {
-    const { prompt, count = 1, size = "1024x1024", quality = "high", requestId: clientRequestId } = req.body;
+    const { prompt, count = 1, size = "1024x1024", quality = "low", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;

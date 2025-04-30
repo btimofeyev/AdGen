@@ -1,4 +1,4 @@
-// Enhanced ImageGrid.jsx with scrollable container
+// Updated ImageGrid with uniform image display for different aspect ratios
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Copy, Trash2, Clock, Eye, ImageIcon } from "lucide-react";
@@ -93,10 +93,6 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
     );
   }
 
-  // Log all image IDs for debugging
-  console.log('Images in ImageGrid:', images.map(img => ({ id: img.id, title: img.title })));
-  console.log('onDelete function available:', !!onDelete);
-
   return (
     <div className="w-full">
       <motion.div 
@@ -120,7 +116,7 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
                 className="bg-background rounded-xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-all"
                 whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
               >
-                {/* Clickable image */}
+                {/* Clickable image - UPDATED with fixed aspect ratio container */}
                 <div 
                   className="relative aspect-square overflow-hidden cursor-pointer"
                   onClick={() => !image.error && onModalOpen(image)}
@@ -131,10 +127,11 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
                     </div>
                   ) : (
                     <>
+                      {/* Image with object-fit: cover to maintain aspect ratio while filling container */}
                       <img 
                         src={image.base64Image} 
                         alt={`Generated image ${index + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-300"
+                        className="w-full h-full object-cover object-center transition-transform duration-300"
                       />
                       
                       {/* Overlay on hover */}
