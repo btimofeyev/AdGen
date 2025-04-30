@@ -71,7 +71,7 @@ const uploadImages = async (req, res) => {
 // Generate multiple ads with multiple reference images
 const generateWithMultipleReferences = async (req, res) => {
   try {
-    const { filepaths, prompt, count = 1, requestId: clientRequestId } = req.body;
+    const { filepaths, prompt, count = 1, size = "1024x1024", quality = "high", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
     // Create unique request ID
@@ -123,8 +123,8 @@ const generateWithMultipleReferences = async (req, res) => {
           filepaths,
           prompt,
           `Generated Image ${i+1}`,
-          "1024x1024",
-          "low",
+          size,  // Use the requested size 
+          quality,
           userId
         ));
       } catch (error) {
@@ -168,6 +168,7 @@ const generateWithMultipleReferences = async (req, res) => {
       details: error.message
     });
   }
+
 };
 
 // Generate images with multiple reference images
@@ -244,7 +245,7 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
 // Generate multiple ads with prompt and count (single reference image)
 const generateMultipleAds = async (req, res) => {
   try {
-    const { filepath, prompt, count = 1, requestId: clientRequestId } = req.body;
+    const { filepath, prompt, count = 1, size = "1024x1024", quality = "high", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
     // Create unique request ID
@@ -293,8 +294,8 @@ const generateMultipleAds = async (req, res) => {
           imageFile,
           userPrompt,
           `Generated Image ${i+1}`,
-          "1024x1024",
-          "low",
+          size,  // Use the requested size
+          quality,
           userId
         ));
       } catch (error) {
@@ -340,7 +341,7 @@ const generateMultipleAds = async (req, res) => {
 // Generate multiple images from scratch (no reference image)
 const generateMultipleFromScratch = async (req, res) => {
   try {
-    const { prompt, count = 1, requestId: clientRequestId } = req.body;
+    const { prompt, count = 1, size = "1024x1024", quality = "high", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -369,8 +370,8 @@ const generateMultipleFromScratch = async (req, res) => {
         generationPromises.push(generateImageFromScratch(
           prompt,
           `Generated Image ${i+1}`,
-          "1024x1024",
-          "low",
+          size,  // Use the requested size
+          quality,
           userId
         ));
       } catch (error) {

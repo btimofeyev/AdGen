@@ -13,6 +13,7 @@ import {
   Download,
   Copy,
   Plus,
+  Check,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -45,7 +46,7 @@ function AdCreator() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("create");
-  const [paymentComplete, setPaymentComplete] = useState(false);
+  const [imageSize, setImageSize] = useState('1024x1024');
 
   // State for tracking if a generation request is in progress
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -329,23 +330,25 @@ function AdCreator() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
+  
       // Generate a unique ID for this request
       const requestId = `${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)}`;
-
+  
       const requestBody = {
         filepaths: filePaths, // Now an array of file paths
         prompt: prompt,
         count: numImages,
         requestId,
+        size: imageSize, // Add the selected image size
+        quality: "high"   // Always set to high quality
       };
-
+  
       console.log(
-        `Sending multi-image generation request: ${requestId} for ${numImages} images with ${filePaths.length} reference images`
+        `Sending multi-image generation request: ${requestId} for ${numImages} images with ${filePaths.length} reference images at size ${imageSize}`
       );
-
+  
       const response = await fetch(`${API_URL}/generate/multiple-references`, {
         method: "POST",
         headers: {
@@ -354,7 +357,7 @@ function AdCreator() {
         },
         body: JSON.stringify(requestBody),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 402) {
@@ -367,7 +370,7 @@ function AdCreator() {
         }
         throw new Error(errorData.error || "Failed to generate images");
       }
-
+  
       const data = await response.json();
       return data.results;
     } catch (err) {
@@ -382,21 +385,23 @@ function AdCreator() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
+  
       const requestId = `${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)}`;
-
+  
       const requestBody = {
         prompt: prompt,
         count: numImages,
         requestId,
+        size: imageSize, 
+        quality: "high"   
       };
-
+  
       console.log(
-        `Sending image generation from scratch request: ${requestId} for ${numImages} images`
+        `Sending image generation from scratch request: ${requestId} for ${numImages} images at size ${imageSize}`
       );
-
+  
       const response = await fetch(`${API_URL}/generate/multiple`, {
         method: "POST",
         headers: {
@@ -405,7 +410,7 @@ function AdCreator() {
         },
         body: JSON.stringify(requestBody),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 402) {
@@ -418,7 +423,7 @@ function AdCreator() {
         }
         throw new Error(errorData.error || "Failed to generate images");
       }
-
+  
       const data = await response.json();
       return data.results;
     } catch (err) {
@@ -741,131 +746,201 @@ function AdCreator() {
     );
   };
 
-  // Memoize the sidebar content to prevent re-rendering
-  const SidebarContent = useMemo(
-    () => (
-      <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
-        {/* Credit Usage */}
-        <div className="mb-8">
-          <UserCredits
-            credits={credits}
-            creditsLoading={creditsLoading}
-            subscription={subscription}
-            onRefresh={handleRefreshCredits}
-            error={creditsError}
-          />
-        </div>
-  
-        {/* Number of Images Selector */}
-        <div className="mb-8">
-          <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
-  
-          {/* Credit Status Indicator */}
-          {!creditsLoading && credits && (
-            <div
-              className={`mb-4 p-3 rounded-lg text-sm ${
-                credits.available_credits < numImages
-                  ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
-                  : credits.available_credits < 5
-                  ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
-                  : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
+const SidebarContent = useMemo(
+  () => (
+    <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
+      {/* Credit Usage */}
+      <div className="mb-8">
+        <UserCredits
+          credits={credits}
+          creditsLoading={creditsLoading}
+          subscription={subscription}
+          onRefresh={handleRefreshCredits}
+          error={creditsError}
+        />
+      </div>
+
+      {/* Number of Images Selector */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
+
+        {/* Credit Status Indicator */}
+        {!creditsLoading && credits && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-sm ${
+              credits.available_credits < numImages
+                ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
+                : credits.available_credits < 5
+                ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
+                : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
+            }`}
+          >
+            <div className="flex items-center">
+              <Zap size={14} className="mr-2 flex-shrink-0" />
+              <span className="font-medium">
+                {credits.available_credits < numImages
+                  ? `Need ${
+                      numImages - credits.available_credits
+                    } more credit${
+                      numImages - credits.available_credits !== 1 ? "s" : ""
+                    }`
+                  : `${credits.available_credits} credit${
+                      credits.available_credits !== 1 ? "s" : ""
+                    } available`}
+              </span>
+            </div>
+            {credits.available_credits < numImages && (
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Link
+                  to="/account"
+                  className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
+                >
+                  Get More Credits
+                </Link>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((num) => (
+            <motion.button
+              key={num}
+              whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setNumImages(num)}
+              className={`rounded-lg py-3 font-semibold transition-all ${
+                numImages === num
+                  ? "bg-pastel-blue text-charcoal shadow-md"
+                  : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
               }`}
             >
-              <div className="flex items-center">
-                <Zap size={14} className="mr-2 flex-shrink-0" />
-                <span className="font-medium">
-                  {credits.available_credits < numImages
-                    ? `Need ${
-                        numImages - credits.available_credits
-                      } more credit${
-                        numImages - credits.available_credits !== 1 ? "s" : ""
-                      }`
-                    : `${credits.available_credits} credit${
-                        credits.available_credits !== 1 ? "s" : ""
-                      } available`}
-                </span>
-              </div>
-              {credits.available_credits < numImages && (
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link
-                    to="/account"
-                    className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
-                  >
-                    Get More Credits
-                  </Link>
-                </motion.div>
-              )}
-            </div>
-          )}
-  
-          <div className="grid grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map((num) => (
-              <motion.button
-                key={num}
-                whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setNumImages(num)}
-                className={`rounded-lg py-3 font-semibold transition-all ${
-                  numImages === num
-                    ? "bg-pastel-blue text-charcoal shadow-md"
-                    : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
-                }`}
-              >
-                {num}
-              </motion.button>
-            ))}
-          </div>
-  
-          {/* Credit cost explanation */}
-          <p className="text-xs text-charcoal/60 mt-3 text-center">
-            Each image costs 1 credit
-          </p>
+              {num}
+            </motion.button>
+          ))}
         </div>
-  
-        {/* Scene Ideas section - moved to main content */}
-        <div className="mb-8">
-          <h2 className="text-lg font-bold mb-3">Image Settings</h2>
-          
-          {/* Quality selector - could be added later */}
-          <div className="p-3 rounded-lg bg-background/20 border border-border/20 text-white/70 text-sm">
-            <p className="mb-2 font-medium text-white">Image Quality</p>
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Standard</span>
-              <div className="w-8 h-4 rounded-full bg-pastel-blue/30 relative">
-                <div className="w-4 h-4 absolute left-0 top-0 rounded-full bg-pastel-blue"></div>
+
+        {/* Credit cost explanation */}
+        <p className="text-xs text-charcoal/60 mt-3 text-center">
+          Each image costs 1 credit
+        </p>
+      </div>
+
+      {/* Image Size Selector - NEW SECTION */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold mb-3">Image Size</h2>
+        <div className="space-y-2">
+          {/* Square size option */}
+          <motion.button
+            whileHover={{ scale: imageSize !== '1024x1024' ? 1.02 : 1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setImageSize('1024x1024')}
+            className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+              imageSize === '1024x1024'
+                ? 'bg-pastel-blue/20 border-pastel-blue text-white'
+                : 'bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40'
+            }`}
+          >
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                <div className="w-8 h-8 border-2 border-current rounded"></div>
               </div>
-              <span className="text-xs text-white/50">High</span>
+              <div className="text-left">
+                <div className="font-medium">Square</div>
+                <div className="text-xs opacity-70">1024 × 1024</div>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        {/* Help & Tips */}
-        <div>
-          <h2 className="text-lg font-bold mb-3">Tips</h2>
-          <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
-            <p className="text-sm text-white/70">
-              <span className="text-pastel-blue font-medium block mb-1">Be specific</span>
-              Describe lighting, environment, and style for best results.
-            </p>
-            <p className="text-sm text-white/70">
-              <span className="text-pastel-blue font-medium block mb-1">Try multiple images</span>
-              Upload up to 4 products to create complex scenes.
-            </p>
-          </div>
+            {imageSize === '1024x1024' && (
+              <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                <Check size={12} className="text-[#181A20]" />
+              </div>
+            )}
+          </motion.button>
+
+          {/* Landscape size option */}
+          <motion.button
+            whileHover={{ scale: imageSize !== '1536x1024' ? 1.02 : 1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setImageSize('1536x1024')}
+            className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+              imageSize === '1536x1024'
+                ? 'bg-pastel-blue/20 border-pastel-blue text-white'
+                : 'bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40'
+            }`}
+          >
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                <div className="w-10 h-7 border-2 border-current rounded"></div>
+              </div>
+              <div className="text-left">
+                <div className="font-medium">Landscape</div>
+                <div className="text-xs opacity-70">1536 × 1024</div>
+              </div>
+            </div>
+            {imageSize === '1536x1024' && (
+              <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                <Check size={12} className="text-[#181A20]" />
+              </div>
+            )}
+          </motion.button>
+
+          {/* Portrait size option */}
+          <motion.button
+            whileHover={{ scale: imageSize !== '1024x1536' ? 1.02 : 1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setImageSize('1024x1536')}
+            className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+              imageSize === '1024x1536'
+                ? 'bg-pastel-blue/20 border-pastel-blue text-white'
+                : 'bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40'
+            }`}
+          >
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                <div className="w-7 h-10 border-2 border-current rounded"></div>
+              </div>
+              <div className="text-left">
+                <div className="font-medium">Portrait</div>
+                <div className="text-xs opacity-70">1024 × 1536</div>
+              </div>
+            </div>
+            {imageSize === '1024x1536' && (
+              <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                <Check size={12} className="text-[#181A20]" />
+              </div>
+            )}
+          </motion.button>
         </div>
       </div>
-    ),
-    [
-      credits,
-      creditsLoading,
-      numImages,
-      subscription,
-      creditsError,
-    ]
-  );
+      
+      {/* Help & Tips */}
+      <div>
+        <h2 className="text-lg font-bold mb-3">Tips</h2>
+        <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
+          <p className="text-sm text-white/70">
+            <span className="text-pastel-blue font-medium block mb-1">Be specific</span>
+            Describe lighting, environment, and style for best results.
+          </p>
+          <p className="text-sm text-white/70">
+            <span className="text-pastel-blue font-medium block mb-1">Try multiple images</span>
+            Upload up to 4 products to create complex scenes.
+          </p>
+        </div>
+      </div>
+    </div>
+  ),
+  [
+    credits,
+    creditsLoading,
+    numImages,
+    imageSize,
+    subscription,
+    creditsError,
+  ]
+);
 
   return (
     <div className="min-h-screen flex bg-[#181A20] text-gray-100">
