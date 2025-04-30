@@ -12,28 +12,17 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Set the correct bucket name
+// Constants
 const BUCKET_NAME = 'scenesnapai';
-
-// This helps ensure temporary uploads get cleaned up regularly
 const TEMP_FILE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
 
-// Upload image - only temporarily for generation, not for storage
+// Upload image for generation
 const uploadImage = async (req, res) => {
-  console.log('===== UPLOAD IMAGE REQUEST =====');
-  console.log('File details:', req.file ? {
-    filename: req.file.filename,
-    size: req.file.size,
-    mimetype: req.file.mimetype
-  } : 'No file');
-  console.log('User:', req.user ? req.user.id : 'Unauthenticated');
-  console.log('================================');
-
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  // Mark the file with the current timestamp for cleanup purposes
+  // Mark the file with timestamp for cleanup
   const filePath = req.file.path;
   fs.writeFileSync(`${filePath}.meta`, JSON.stringify({
     uploadTime: Date.now(),
@@ -48,33 +37,19 @@ const uploadImage = async (req, res) => {
   });
 };
 
-// Generate multiple ads with just the prompt and count
+// Generate multiple ads with prompt and count
 const generateMultipleAds = async (req, res) => {
   try {
     const { filepath, prompt, count = 1, requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
-    // Create a unique request ID to detect and avoid duplicate requests
-    // Use client-provided ID if available
+    // Create unique request ID
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    console.log(`===== GENERATE IMAGES REQUEST [${requestId}] =====`);
-    console.log('Filepath:', filepath);
-    console.log('User prompt:', prompt);
-    console.log('Number of images:', count);
-    console.log('User ID:', userId || 'Not authenticated');
-    console.log('===================================');
-    
-    // Ensure user has a credit record if they're authenticated
+    // Ensure user has credits if authenticated
     if (userId) {
-      const ensured = await ensureUserHasCredits(userId);
-      if (!ensured) {
-        console.log('Failed to ensure user has credits');
-      }
-    }
-    
-    // Check if user has enough credits before proceeding
-    if (userId) {
+      await ensureUserHasCredits(userId);
+      
       const hasCredits = await hasEnoughCredits(userId, count);
       if (!hasCredits) {
         return res.status(402).json({ 
@@ -84,19 +59,20 @@ const generateMultipleAds = async (req, res) => {
       }
     }
     
-    // If no filepath provided but we have a prompt, generate from scratch
+    // If no filepath but prompt exists, generate from scratch
     if (!filepath && prompt) {
-      console.log(`Redirecting to generateMultipleFromScratch with request ID ${requestId}`);
       return generateMultipleFromScratch(req, res);
     }
     
     if (filepath && !fs.existsSync(filepath)) {
-      console.log(`File not found: ${filepath}. Redirecting to generateMultipleFromScratch.`);
-      // If file not found but we have prompt, fall back to generating from scratch
+      // If file not found but prompt exists, fall back to generating from scratch
       if (prompt) {
         return generateMultipleFromScratch(req, res);
       }
-      return res.status(400).json({ error: 'Invalid file path', message: 'The specified file was not found. Please upload your image again.' });
+      return res.status(400).json({ 
+        error: 'Invalid file path', 
+        message: 'The specified file was not found. Please upload your image again.' 
+      });
     }
     
     const fileName = path.basename(filepath);
@@ -109,10 +85,6 @@ const generateMultipleAds = async (req, res) => {
         const imageFile = await OpenAI.toFile(imageBuffer, fileName, { type: mimeType });
         const userPrompt = prompt || 'Create a visually appealing advertisement featuring this image';
         
-        console.log(`===== GENERATION REQUEST #${i+1} for request ${requestId} =====`);
-        console.log('Full prompt being sent to OpenAI:', userPrompt);
-        console.log('===================================');
-        
         generationPromises.push(generateImage(
           imageFile,
           userPrompt,
@@ -122,7 +94,6 @@ const generateMultipleAds = async (req, res) => {
           userId
         ));
       } catch (error) {
-        console.error(`Error creating promise for image ${i+1}:`, error);
         generationPromises.push(Promise.resolve({ error: error.message }));
       }
     }
@@ -132,57 +103,22 @@ const generateMultipleAds = async (req, res) => {
       result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Failed to generate image' }
     );
     
-    console.log(`===== GENERATION RESULTS for request ${requestId} =====`);
-    console.log('Successful generations:', processedResults.filter(r => !r.error).length);
-    console.log('Failed generations:', processedResults.filter(r => r.error).length);
-    console.log('==============================');
-    
-    // Only deduct credits for successful generations
+    // Deduct credits for successful generations
     if (userId) {
       const successfulCount = processedResults.filter(r => !r.error).length;
       if (successfulCount > 0) {
-        console.log(`===== CREDIT DEDUCTION ATTEMPT for request ${requestId} =====`);
-        console.log(`User ID: ${userId}`);
-        console.log(`Deducting ${successfulCount} credits`);
-        
-        const deductionSuccess = await deductCredits(userId, successfulCount, 'image_generation', { 
+        await deductCredits(userId, successfulCount, 'image_generation', { 
           prompt, 
           count: successfulCount, 
           with_reference: true,
           success_rate: `${successfulCount}/${count}`,
           request_id: requestId
         });
-        
-        console.log(`Credits deduction ${deductionSuccess ? 'successful' : 'failed'} for ${successfulCount} images`);
-        console.log(`===== END CREDIT DEDUCTION =====`);
       }
     }
     
-    // After successful generation, mark the file for cleanup instead of immediately deleting it
-    try {
-      if (filepath && fs.existsSync(filepath)) {
-        // Instead of deleting immediately, update metadata to mark for cleanup
-        const metaFilePath = `${filepath}.meta`;
-        if (fs.existsSync(metaFilePath)) {
-          const metadata = JSON.parse(fs.readFileSync(metaFilePath, 'utf8'));
-          metadata.markedForCleanup = true;
-          metadata.lastUsed = Date.now();
-          fs.writeFileSync(metaFilePath, JSON.stringify(metadata));
-          console.log(`Temporary file marked for cleanup: ${filepath}`);
-        } else {
-          // If meta file doesn't exist, create one
-          fs.writeFileSync(metaFilePath, JSON.stringify({
-            uploadTime: Date.now(),
-            lastUsed: Date.now(),
-            userID: userId || 'anonymous',
-            isTemporary: true,
-            markedForCleanup: true
-          }));
-        }
-      }
-    } catch (cleanupError) {
-      console.error('Error marking file for cleanup:', cleanupError);
-    }
+    // Mark the file for cleanup
+    markFileForCleanup(filepath, userId);
     
     return res.status(200).json({
       message: 'Multiple images generated',
@@ -190,7 +126,6 @@ const generateMultipleAds = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error generating multiple images:', error);
     return res.status(500).json({ 
       error: 'Failed to generate images',
       details: error.message
@@ -204,26 +139,12 @@ const generateMultipleFromScratch = async (req, res) => {
     const { prompt, count = 1, requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
-    // Create a unique request ID to detect and avoid duplicate requests
-    // Use client-provided ID if available
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    console.log(`===== GENERATE FROM SCRATCH [${requestId}] =====`);
-    console.log('User prompt:', prompt);
-    console.log('Number of images:', count);
-    console.log('User ID:', userId || 'Not authenticated');
-    console.log('================================');
-    
-    // Ensure user has a credit record if they're authenticated
+    // Credit checks
     if (userId) {
-      const ensured = await ensureUserHasCredits(userId);
-      if (!ensured) {
-        console.log('Failed to ensure user has credits');
-      }
-    }
-    
-    // Check if user has enough credits before proceeding
-    if (userId) {
+      await ensureUserHasCredits(userId);
+      
       const hasCredits = await hasEnoughCredits(userId, count);
       if (!hasCredits) {
         return res.status(402).json({ 
@@ -241,10 +162,6 @@ const generateMultipleFromScratch = async (req, res) => {
     
     for (let i = 0; i < count; i++) {
       try {
-        console.log(`===== SCRATCH GENERATION REQUEST #${i+1} for request ${requestId} =====`);
-        console.log('Full prompt being sent to OpenAI:', prompt);
-        console.log('=========================================');
-        
         generationPromises.push(generateImageFromScratch(
           prompt,
           `Generated Image ${i+1}`,
@@ -253,7 +170,6 @@ const generateMultipleFromScratch = async (req, res) => {
           userId
         ));
       } catch (error) {
-        console.error(`Error creating promise for image ${i+1}:`, error);
         generationPromises.push(Promise.resolve({ error: error.message }));
       }
     }
@@ -263,29 +179,17 @@ const generateMultipleFromScratch = async (req, res) => {
       result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Failed to generate image' }
     );
     
-    console.log(`===== SCRATCH GENERATION RESULTS for request ${requestId} =====`);
-    console.log('Successful generations:', processedResults.filter(r => !r.error).length);
-    console.log('Failed generations:', processedResults.filter(r => r.error).length);
-    console.log('=====================================');
-    
-    // Only deduct credits for successful generations
+    // Deduct credits for successful generations
     if (userId) {
       const successfulCount = processedResults.filter(r => !r.error).length;
       if (successfulCount > 0) {
-        console.log(`===== CREDIT DEDUCTION ATTEMPT for request ${requestId} =====`);
-        console.log(`User ID: ${userId}`);
-        console.log(`Deducting ${successfulCount} credits`);
-        
-        const deductionSuccess = await deductCredits(userId, successfulCount, 'image_generation', { 
+        await deductCredits(userId, successfulCount, 'image_generation', { 
           prompt, 
           count: successfulCount, 
           with_reference: false,
           success_rate: `${successfulCount}/${count}`,
           request_id: requestId
         });
-        
-        console.log(`Credits deduction ${deductionSuccess ? 'successful' : 'failed'} for ${successfulCount} images`);
-        console.log(`===== END CREDIT DEDUCTION =====`);
       }
     }
     
@@ -295,20 +199,16 @@ const generateMultipleFromScratch = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error generating multiple images from scratch:', error);
     return res.status(500).json({ 
       error: 'Failed to generate images',
       details: error.message
     });
   }
 };
+
+// Generate image with reference
 async function generateImage(imageFile, prompt, title, size, quality, userId = null) {
   try {
-    console.log('===== GENERATING IMAGE WITH REFERENCE =====');
-    console.log('Prompt sent to OpenAI API:', prompt);
-    console.log('User ID:', userId || 'Not authenticated');
-    console.log('==========================================');
-    
     const result = await openai.images.edit({
       model: "gpt-image-1",
       image: imageFile,
@@ -318,76 +218,30 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       quality
     });
     
-    console.log('===== IMAGE WITH REFERENCE RESULT =====');
-    console.log('Generation successful:', !!result?.data?.[0]?.b64_json);
-    console.log('======================================');
-    
     const generatedImage = result.data[0].b64_json;
     const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
     
     let dbRecord = null;
     let storageUrl = null;
     
-    // Calculate expiration date (7 days from now) - moved here to fix reference error
+    // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
     if (userId) {
-      const imageBuffer = Buffer.from(generatedImage, 'base64');
-      const storagePath = `${userId}/generated/${outputFilename}`;
+      // Store in Supabase
+      const imageData = await storeImageInSupabase(
+        userId, 
+        outputFilename, 
+        generatedImage, 
+        prompt, 
+        size, 
+        quality, 
+        expiresAt
+      );
       
-      // Store in Supabase Storage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(storagePath, imageBuffer, {
-          contentType: 'image/png',
-          upsert: false
-        });
-      
-      if (storageError) {
-        console.error('Error uploading to Supabase storage:', storageError);
-      } else {
-        const { data: { publicUrl } } = supabase.storage
-          .from(BUCKET_NAME)
-          .getPublicUrl(storagePath);
-        
-        storageUrl = publicUrl;
-        
-        // Check the database schema before inserting
-        try {
-          // Save metadata to database with expiration - fixed column name issue
-          const { data, error } = await supabase
-            .from('generated_images')
-            .insert({
-              user_id: userId,
-              filename: outputFilename,
-              prompt,
-              storage_path: storagePath,
-              // Change base64_image to match your actual column name in the database
-              // If your column is named differently, replace 'base64_image' with the correct name
-              base64_image: generatedImage, // Verify this column name in your database
-              metadata: {
-                size,
-                quality,
-                model: "gpt-image-1",
-                generation_time: new Date().toISOString()
-              },
-              expires_at: expiresAt.toISOString() // Using the defined expiresAt
-            })
-            .select()
-            .single();
-          
-          if (error) {
-            console.error('Error saving to database:', error);
-          } else {
-            dbRecord = data;
-            console.log('Saved to database with ID:', data.id);
-            console.log('Image will expire on:', expiresAt.toISOString());
-          }
-        } catch (dbError) {
-          console.error('Database insert error:', dbError);
-        }
-      }
+      dbRecord = imageData.dbRecord;
+      storageUrl = imageData.storageUrl;
     }
     
     return {
@@ -398,22 +252,16 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       base64Image: `data:image/png;base64,${generatedImage}`,
       prompt,
       created_at: dbRecord?.created_at || new Date().toISOString(),
-      expires_at: expiresAt.toISOString() // Using the defined expiresAt
+      expires_at: expiresAt.toISOString()
     };
   } catch (error) {
-    console.error(`Error generating image:`, error);
     throw error;
   }
 }
 
-// Apply the same fix to generateImageFromScratch function
+// Generate image from scratch
 async function generateImageFromScratch(prompt, title, size, quality, userId = null) {
   try {
-    console.log('===== GENERATING IMAGE FROM SCRATCH =====');
-    console.log('Prompt sent to OpenAI API:', prompt);
-    console.log('User ID:', userId || 'Not authenticated');
-    console.log('=========================================');
-    
     const result = await openai.images.generate({
       model: "gpt-image-1",
       prompt,
@@ -422,75 +270,30 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       quality
     });
     
-    console.log('===== IMAGE FROM SCRATCH RESULT =====');
-    console.log('Generation successful:', !!result?.data?.[0]?.b64_json);
-    console.log('====================================');
-    
     const generatedImage = result.data[0].b64_json;
     const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
     
     let dbRecord = null;
     let storageUrl = null;
     
-    // Calculate expiration date (7 days from now) - fixed here too
+    // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
     if (userId) {
-      const imageBuffer = Buffer.from(generatedImage, 'base64');
-      const storagePath = `${userId}/generated/${outputFilename}`;
+      // Store in Supabase
+      const imageData = await storeImageInSupabase(
+        userId, 
+        outputFilename, 
+        generatedImage, 
+        prompt, 
+        size, 
+        quality, 
+        expiresAt
+      );
       
-      // Store in Supabase Storage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(storagePath, imageBuffer, {
-          contentType: 'image/png',
-          upsert: false
-        });
-      
-      if (storageError) {
-        console.error('Error uploading to Supabase storage:', storageError);
-      } else {
-        const { data: { publicUrl } } = supabase.storage
-          .from(BUCKET_NAME)
-          .getPublicUrl(storagePath);
-        
-        storageUrl = publicUrl;
-        
-        // Check the database schema before inserting
-        try {
-          // Save to database with expiration - fixed column name issue
-          const { data, error } = await supabase
-            .from('generated_images')
-            .insert({
-              user_id: userId,
-              filename: outputFilename,
-              prompt,
-              storage_path: storagePath,
-              // Change base64_image to match your actual column name in the database
-              base64_image: generatedImage, // Verify this column name
-              metadata: {
-                size,
-                quality,
-                model: "gpt-image-1",
-                generation_time: new Date().toISOString()
-              },
-              expires_at: expiresAt.toISOString() // Using the defined expiresAt
-            })
-            .select()
-            .single();
-          
-          if (error) {
-            console.error('Error saving to database:', error);
-          } else {
-            dbRecord = data;
-            console.log('Saved to database with ID:', data.id);
-            console.log('Image will expire on:', expiresAt.toISOString());
-          }
-        } catch (dbError) {
-          console.error('Database insert error:', dbError);
-        }
-      }
+      dbRecord = imageData.dbRecord;
+      storageUrl = imageData.storageUrl;
     }
     
     return {
@@ -501,20 +304,75 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       base64Image: `data:image/png;base64,${generatedImage}`,
       prompt,
       created_at: dbRecord?.created_at || new Date().toISOString(),
-      expires_at: expiresAt.toISOString() // Using the defined expiresAt
+      expires_at: expiresAt.toISOString()
     };
   } catch (error) {
-    console.error(`Error generating image from scratch:`, error);
     throw error;
   }
 }
 
-// Get user's images - Modified to only return generated images
+// Helper function to store image in Supabase
+async function storeImageInSupabase(userId, filename, base64Image, prompt, size, quality, expiresAt) {
+  try {
+    const imageBuffer = Buffer.from(base64Image, 'base64');
+    const storagePath = `${userId}/generated/${filename}`;
+    
+    // Upload to storage
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(storagePath, imageBuffer, {
+        contentType: 'image/png',
+        upsert: false
+      });
+    
+    if (storageError) {
+      throw storageError;
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(storagePath);
+    
+    // Save to database
+    const { data, error } = await supabase
+      .from('generated_images')
+      .insert({
+        user_id: userId,
+        filename,
+        prompt,
+        storage_path: storagePath,
+        base64_image: base64Image,
+        metadata: {
+          size,
+          quality,
+          model: "gpt-image-1",
+          generation_time: new Date().toISOString()
+        },
+        expires_at: expiresAt.toISOString()
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    return {
+      dbRecord: data,
+      storageUrl: publicUrl
+    };
+  } catch (error) {
+    console.error('Error storing image in Supabase:', error);
+    return { dbRecord: null, storageUrl: null };
+  }
+}
+
+// Get user's images
 const getUserImages = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Only get images from generated_images table 
     const { data: generatedImagesData, error: generatedImagesError } = await supabase
       .from('generated_images')
       .select('*')
@@ -522,13 +380,11 @@ const getUserImages = async (req, res) => {
       .order('created_at', { ascending: false });
     
     if (generatedImagesError) {
-      console.error('Error fetching generated images:', generatedImagesError);
       return res.status(500).json({ error: 'Failed to fetch user images' });
     }
 
-    // Process generated_images
+    // Process images with expiration info
     const processedImages = generatedImagesData.map(img => {
-      // Calculate days remaining until expiration
       const now = new Date();
       const expiresAt = new Date(img.expires_at);
       const daysRemaining = Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)));
@@ -558,7 +414,6 @@ const getUserImages = async (req, res) => {
       images: processedImages
     });
   } catch (error) {
-    console.error('Error in getUserImages:', error);
     return res.status(500).json({
       error: 'Failed to retrieve user images',
       details: error.message
@@ -572,7 +427,7 @@ const deleteUserImage = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Get the image data first
+    // Get the image data
     const { data: imageData, error: getError } = await supabase
       .from('generated_images')
       .select('storage_path')
@@ -586,14 +441,9 @@ const deleteUserImage = async (req, res) => {
     
     // Delete from storage if path exists
     if (imageData.storage_path) {
-      const { error: storageError } = await supabase.storage
+      await supabase.storage
         .from(BUCKET_NAME)
         .remove([imageData.storage_path]);
-      
-      if (storageError) {
-        console.error('Error deleting from storage:', storageError);
-        // Continue anyway to delete the database record
-      }
     }
     
     // Delete the database record
@@ -612,7 +462,6 @@ const deleteUserImage = async (req, res) => {
     
     return res.status(200).json({ message: 'Image deleted successfully' });
   } catch (error) {
-    console.error('Error in deleteUserImage:', error);
     return res.status(500).json({
       error: 'Failed to delete image',
       details: error.message
@@ -655,7 +504,6 @@ const getSupabaseImage = async (req, res) => {
       .download(img.storage_path);
       
     if (dlErr) {
-      console.error('Error downloading image:', dlErr);
       return res.status(500).json({ error: 'Failed to download image' });
     }
     
@@ -663,7 +511,6 @@ const getSupabaseImage = async (req, res) => {
     res.setHeader('Content-Type', 'image/png');
     return res.send(buffer);
   } catch (error) {
-    console.error('Error in getSupabaseImage:', error);
     return res.status(500).json({
       error: 'Failed to retrieve image',
       details: error.message
@@ -671,7 +518,7 @@ const getSupabaseImage = async (req, res) => {
   }
 };
 
-// Get themes and formats - Simple version for now
+// Get themes and formats
 const getThemesAndFormats = (req, res) => {
   res.json({
     themes: [
@@ -702,6 +549,31 @@ function getMimeType(filepath) {
   }
 }
 
+// Mark file for cleanup
+function markFileForCleanup(filepath, userId) {
+  if (!filepath || !fs.existsSync(filepath)) return;
+  
+  try {
+    const metaFilePath = `${filepath}.meta`;
+    if (fs.existsSync(metaFilePath)) {
+      const metadata = JSON.parse(fs.readFileSync(metaFilePath, 'utf8'));
+      metadata.markedForCleanup = true;
+      metadata.lastUsed = Date.now();
+      fs.writeFileSync(metaFilePath, JSON.stringify(metadata));
+    } else {
+      fs.writeFileSync(metaFilePath, JSON.stringify({
+        uploadTime: Date.now(),
+        lastUsed: Date.now(),
+        userID: userId || 'anonymous',
+        isTemporary: true,
+        markedForCleanup: true
+      }));
+    }
+  } catch (error) {
+    console.error('Error marking file for cleanup:', error);
+  }
+}
+
 // Cleanup expired images - can be called from a scheduled job
 const cleanupExpiredImages = async () => {
   console.log('Starting cleanup of expired generated images...');
@@ -715,16 +587,12 @@ const cleanupExpiredImages = async () => {
       .lt('expires_at', now);
     
     if (fetchError) {
-      console.error('Error fetching expired images:', fetchError);
       return { success: false, error: fetchError, deletedCount: 0 };
     }
     
     if (!expiredImages || expiredImages.length === 0) {
-      console.log('No expired images found');
       return { success: true, deletedCount: 0 };
     }
-    
-    console.log(`Found ${expiredImages.length} expired images to delete`);
     
     // Extract storage paths for deletion
     const storagePaths = expiredImages
@@ -733,34 +601,20 @@ const cleanupExpiredImages = async () => {
     
     // Delete from storage if there are any paths
     if (storagePaths.length > 0) {
-      const { error: storageError } = await supabase.storage
+      await supabase.storage
         .from(BUCKET_NAME)
         .remove(storagePaths);
-      
-      if (storageError) {
-        console.error('Error deleting from storage:', storageError);
-        // Continue with DB deletion even if storage deletion failed
-      } else {
-        console.log(`Deleted ${storagePaths.length} images from storage`);
-      }
     }
     
     // Delete from database
     const expiredIds = expiredImages.map(img => img.id);
-    const { error: deleteError } = await supabase
+    await supabase
       .from('generated_images')
       .delete()
       .in('id', expiredIds);
     
-    if (deleteError) {
-      console.error('Error deleting expired images from database:', deleteError);
-      return { success: false, error: deleteError, deletedCount: 0 };
-    }
-    
-    console.log(`Successfully deleted ${expiredImages.length} expired images`);
     return { success: true, deletedCount: expiredImages.length };
   } catch (error) {
-    console.error('Error in cleanupExpiredImages:', error);
     return { success: false, error, deletedCount: 0 };
   }
 };
@@ -780,6 +634,8 @@ const cleanupTemporaryFiles = () => {
     }
     
     const now = Date.now();
+    const RECENT_USE_TTL = 5 * 60 * 1000; // 5 minutes
+    
     files.forEach(file => {
       const filePath = path.join(uploadsDir, file);
       // Skip directories and metadata files
@@ -794,16 +650,11 @@ const cleanupTemporaryFiles = () => {
         try {
           const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
           
-          // Check if file is marked for cleanup and hasn't been used in the last 5 minutes
-          // or if it's an old file (over 24 hours)
-          const RECENT_USE_TTL = 5 * 60 * 1000; // 5 minutes
-          
           if ((metadata.markedForCleanup && (now - metadata.lastUsed > RECENT_USE_TTL)) || 
               (metadata.isTemporary && (now - metadata.uploadTime > TEMP_FILE_TTL))) {
             // Delete the file and its metadata
             fs.unlinkSync(filePath);
             fs.unlinkSync(metaPath);
-            console.log(`Cleaned up temporary file: ${file}`);
           }
         } catch (err) {
           console.error(`Error checking temporary file ${file}:`, err);
@@ -821,5 +672,5 @@ module.exports = {
   getSupabaseImage,
   getThemesAndFormats,
   cleanupTemporaryFiles,
-  cleanupExpiredImages // Export the new function for scheduled jobs
+  cleanupExpiredImages
 };

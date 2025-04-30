@@ -1,8 +1,8 @@
 // server/controllers/subscriptionController.js
 
-const stripe   = require("../lib/stripe");
+const stripe = require("../lib/stripe");
 const supabase = require("../lib/supabase");
-const dotenv   = require("dotenv");
+const dotenv = require("dotenv");
 dotenv.config();
 
 exports.createCheckoutSession = async (req, res) => {
@@ -48,18 +48,16 @@ exports.createCheckoutSession = async (req, res) => {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: planId === "pay-as-you-go" ? "payment" : "subscription",
       success_url: successUrl,
-      cancel_url:  cancelUrl,
-      metadata:   { user_id: userId, plan_id: planId },
+      cancel_url: cancelUrl,
+      metadata: { user_id: userId, plan_id: planId },
     });
 
     res.status(200).json({ sessionId: session.id });
-
   } catch (err) {
     console.error("Error creating checkout session:", err);
     res.status(500).json({ error: err.message });
   }
 };
-
 
 /**
  * Handle incoming Stripe webhooks
@@ -87,10 +85,77 @@ exports.webhookHandler = async (req, res) => {
 
   console.log("✅ Webhook validated, type =", event.type);
 
+  // Handle subscription renewals (invoice.payment_succeeded for recurring payments)
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object;
+    
+    // Check if this is a subscription renewal (not the first payment)
+    if (invoice.billing_reason === "subscription_cycle" && invoice.subscription) {
+      try {
+        // Get subscription details
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+        const planId = subscription.metadata?.plan_id;
+        const userId = subscription.metadata?.user_id;
+        
+        if (!planId || !userId) {
+          console.error("Missing metadata in subscription:", subscription.id);
+          return res.status(200).json({ received: true });
+        }
+        
+        console.log(`Processing subscription renewal for user ${userId}, plan ${planId}`);
+        
+        // Credit map for subscription plans
+        const creditMap = {
+          "starter": 50,
+          "pro": 200,
+          "premium": 500,
+        };
+        
+        const creditAmount = creditMap[planId] || 0;
+        
+        if (creditAmount > 0) {
+          // RESET credits instead of adding to remaining balance
+          const { error: resetError } = await supabase
+            .from("user_credits")
+            .update({
+              available_credits: creditAmount, // Set to exact plan amount (not adding)
+              total_credits_received: supabase.raw(`total_credits_received + ${creditAmount}`),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", userId);
+            
+          if (resetError) {
+            console.error("Error resetting credits on renewal:", resetError);
+          } else {
+            console.log(`Reset credits for ${userId} to ${creditAmount} on renewal`);
+            
+            // Record the transaction
+            await supabase.from("credit_transactions").insert({
+              user_id: userId,
+              amount: creditAmount,
+              transaction_type: "subscription_renewal",
+              metadata: { 
+                plan_id: planId, 
+                subscription_id: invoice.subscription,
+                is_reset: true
+              },
+              created_at: new Date().toISOString(),
+            });
+            
+            console.log(`Recorded renewal transaction for ${creditAmount} credits`);
+          }
+        }
+      } catch (err) {
+        console.error("Error processing subscription renewal:", err);
+      }
+    }
+  }
+
+  // Handle checkout session completion
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const userId  = session.metadata.user_id;
-    const plan    = session.metadata.plan_id;
+    const userId = session.metadata.user_id;
+    const plan = session.metadata.plan_id;
 
     if (!userId || !plan) {
       console.error("Missing metadata in session:", session.id);
@@ -101,9 +166,9 @@ exports.webhookHandler = async (req, res) => {
     // ---- 1) Award credits ----
     const creditMap = {
       "pay-as-you-go": 15,
-      starter:         50,
-      pro:            200,
-      premium:        500,
+      starter: 50,
+      pro: 200,
+      premium: 500,
     };
     const creditAmount = creditMap[plan] || 0;
 
@@ -122,9 +187,9 @@ exports.webhookHandler = async (req, res) => {
           await supabase
             .from("user_credits")
             .update({
-              available_credits:       creditsRow.available_credits + creditAmount,
-              total_credits_received:  creditsRow.total_credits_received + creditAmount,
-              updated_at:              new Date().toISOString(),
+              available_credits: creditsRow.available_credits + creditAmount,
+              total_credits_received: creditsRow.total_credits_received + creditAmount,
+              updated_at: new Date().toISOString(),
             })
             .eq("user_id", userId);
           console.log(`Updated credits for ${userId}`);
@@ -133,28 +198,27 @@ exports.webhookHandler = async (req, res) => {
           await supabase
             .from("user_credits")
             .insert({
-              user_id:                userId,
-              available_credits:      creditAmount,
+              user_id: userId,
+              available_credits: creditAmount,
               total_credits_received: creditAmount,
-              credits_used:           0,
-              created_at:             new Date().toISOString(),
-              updated_at:             new Date().toISOString(),
+              credits_used: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             });
           console.log(`Created credits for ${userId}`);
         }
 
         // record transaction
         await supabase.from("credit_transactions").insert({
-          user_id:          userId,
-          amount:           creditAmount,
+          user_id: userId,
+          amount: creditAmount,
           transaction_type: session.mode === "subscription"
-                             ? "subscription_creation"
-                             : "purchase",
-          metadata:         { plan_id: plan, session_id: session.id },
-          created_at:       new Date().toISOString(),
+            ? "subscription_creation"
+            : "purchase",
+          metadata: { plan_id: plan, session_id: session.id },
+          created_at: new Date().toISOString(),
         });
         console.log(`Recorded transaction for ${creditAmount} credits`);
-
       } catch (err) {
         console.error("Credits & transactions error:", err);
       }
@@ -169,12 +233,12 @@ exports.webhookHandler = async (req, res) => {
 
         // call your stored proc
         const { error: rpcErr } = await supabase.rpc("create_subscription", {
-          in_user_id:      userId,
-          in_sub_id:       stripeSub.id,
-          in_plan_id:      plan,
-          in_status:       stripeSub.status,
+          in_user_id: userId,
+          in_sub_id: stripeSub.id,
+          in_plan_id: plan,
+          in_status: stripeSub.status,
           in_period_start: new Date(stripeSub.current_period_start * 1000).toISOString(),
-          in_period_end:   new Date(stripeSub.current_period_end   * 1000).toISOString(),
+          in_period_end: new Date(stripeSub.current_period_end * 1000).toISOString(),
         });
         if (rpcErr) throw rpcErr;
         console.log("Created subscription via RPC");
@@ -188,7 +252,6 @@ exports.webhookHandler = async (req, res) => {
           .limit(1);
         if (fetchErr) throw fetchErr;
         console.log("Subscription record:", rows[0]);
-
       } catch (err) {
         console.error("Subscription creation error:", err);
       }
@@ -198,60 +261,62 @@ exports.webhookHandler = async (req, res) => {
   // Always ACK
   return res.status(200).json({ received: true });
 };
+
 exports.createPortalSession = async (req, res) => {
-    try {
-      const userId = req.user.id;
-  
-      // 1) Look up the Stripe customer ID
-      const { data, error } = await supabase
-        .from("user_payment_details")
-        .select("stripe_customer_id")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data?.stripe_customer_id) {
-        return res.status(404).json({ error: "No Stripe customer on file" });
-      }
-  
-      // 2) Determine a fully‐qualified base URL
-      let baseUrl = process.env.FRONTEND_URL;
-      if (!baseUrl || !/^https?:\/\//.test(baseUrl)) {
-        // fallback to the Origin header or construct from protocol+host
-        baseUrl = req.get("origin") || `${req.protocol}://${req.get("host")}`;
-        console.warn("FRONTEND_URL invalid or unset, falling back to:", baseUrl);
-      }
-      // strip trailing slash
-      baseUrl = baseUrl.replace(/\/$/, "");
-  
-      // 3) Create the Stripe Billing Portal session
-      const session = await stripe.billingPortal.sessions.create({
-        customer:   data.stripe_customer_id,
-        return_url: `${baseUrl}/account`
-      });
-  
-      console.log("Redirecting to Stripe Portal with return_url:", `${baseUrl}/account`);
-      return res.json({ url: session.url });
-    } catch (err) {
-      console.error("Error creating portal session:", err);
-      return res.status(500).json({ error: "Failed to create portal session" });
+  try {
+    const userId = req.user.id;
+
+    // 1) Look up the Stripe customer ID
+    const { data, error } = await supabase
+      .from("user_payment_details")
+      .select("stripe_customer_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.stripe_customer_id) {
+      return res.status(404).json({ error: "No Stripe customer on file" });
     }
-  };
-  exports.verifySession = async (req, res) => {
-    try {
-      const { session_id } = req.query;
-      if (!session_id) {
-        return res.status(400).json({ error: 'Missing session_id' });
-      }
-      // Retrieve the Checkout Session from Stripe:
-      const session = await stripe.checkout.sessions.retrieve(session_id, {
-        expand: ['subscription']
-      });
-      res.json({
-        message: 'Session verified',
-        session
-      });
-    } catch (err) {
-      console.error('Error verifying session:', err);
-      res.status(500).json({ error: 'Failed to verify session' });
+
+    // 2) Determine a fully‐qualified base URL
+    let baseUrl = process.env.FRONTEND_URL;
+    if (!baseUrl || !/^https?:\/\//.test(baseUrl)) {
+      // fallback to the Origin header or construct from protocol+host
+      baseUrl = req.get("origin") || `${req.protocol}://${req.get("host")}`;
+      console.warn("FRONTEND_URL invalid or unset, falling back to:", baseUrl);
     }
-  };
+    // strip trailing slash
+    baseUrl = baseUrl.replace(/\/$/, "");
+
+    // 3) Create the Stripe Billing Portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: data.stripe_customer_id,
+      return_url: `${baseUrl}/account`
+    });
+
+    console.log("Redirecting to Stripe Portal with return_url:", `${baseUrl}/account`);
+    return res.json({ url: session.url });
+  } catch (err) {
+    console.error("Error creating portal session:", err);
+    return res.status(500).json({ error: "Failed to create portal session" });
+  }
+};
+
+exports.verifySession = async (req, res) => {
+  try {
+    const { session_id } = req.query;
+    if (!session_id) {
+      return res.status(400).json({ error: 'Missing session_id' });
+    }
+    // Retrieve the Checkout Session from Stripe:
+    const session = await stripe.checkout.sessions.retrieve(session_id, {
+      expand: ['subscription']
+    });
+    res.json({
+      message: 'Session verified',
+      session
+    });
+  } catch (err) {
+    console.error('Error verifying session:', err);
+    res.status(500).json({ error: 'Failed to verify session' });
+  }
+};

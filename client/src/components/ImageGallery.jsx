@@ -1,26 +1,23 @@
 // client/src/components/ImageGallery.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Download, Share2, Copy } from "lucide-react";
+import { Download, Copy } from "lucide-react";
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
 
 const ImageGallery = ({ images, onDownload }) => {
-  // Copy image to clipboard
   const handleCopyImage = async (imageBase64, index) => {
     try {
-      // Convert the base64 string to a blob
       const fetchResponse = await fetch(imageBase64);
       const blob = await fetchResponse.blob();
       
-      // Create a ClipboardItem and write to clipboard
       const item = new ClipboardItem({ 'image/png': blob });
       await navigator.clipboard.write([item]);
       
-      // You could add a toast notification here to confirm copy
       alert('Image copied to clipboard!');
     } catch (err) {
       console.error('Failed to copy image: ', err);
+      
       // Fallback for browsers that don't support clipboard API
       const link = document.createElement('a');
       link.href = imageBase64;
@@ -79,7 +76,6 @@ const ImageGallery = ({ images, onDownload }) => {
                     className="w-full h-48 object-contain rounded-md bg-slate-50"
                   />
                   
-                  {/* Quick action buttons on hover */}
                   <div className="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
                     <div className="flex space-x-2">
                       <Button 
