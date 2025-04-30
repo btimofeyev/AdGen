@@ -30,7 +30,7 @@ function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-light-gray px-6 py-4 flex justify-between items-center">
+    <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#23262F]/80 backdrop-blur-md border-b border-light-gray px-6 py-4 flex justify-between items-center">
       <Link to="/" className="flex items-center cursor-pointer">
         <Sparkles className="h-6 w-6 text-pastel-blue mr-2" />
         <span className="text-2xl font-bold">SnapSceneAI</span>
@@ -74,7 +74,7 @@ function Navbar() {
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className={`bg-white border border-light-gray/40 text-charcoal/70 font-medium rounded-full px-4 sm:px-6 py-2 sm:py-3 transition hover:bg-soft-white flex items-center gap-2 text-sm sm:text-base ${
+              className={`bg-white border border-light-gray/40 text-charcoal/70 font-medium rounded-full px-4 sm:px-6 py-2 sm:py-3 transition hover:bg-soft-white flex items-center gap-2 text-sm sm:text-base dark:bg-pastel-blue dark:text-[#181A20] dark:border-pastel-blue dark:hover:bg-pastel-blue/80 ${
                 isLoggingOut ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >

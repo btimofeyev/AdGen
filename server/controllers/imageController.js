@@ -302,8 +302,6 @@ const generateMultipleFromScratch = async (req, res) => {
     });
   }
 };
-
-// Helper function to generate a single image with reference image
 async function generateImage(imageFile, prompt, title, size, quality, userId = null) {
   try {
     console.log('===== GENERATING IMAGE WITH REFERENCE =====');
@@ -330,13 +328,13 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
     let dbRecord = null;
     let storageUrl = null;
     
+    // Calculate expiration date (7 days from now) - moved here to fix reference error
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
     if (userId) {
       const imageBuffer = Buffer.from(generatedImage, 'base64');
       const storagePath = `${userId}/generated/${outputFilename}`;
-      
-      // Calculate expiration date (7 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
       
       // Store in Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
@@ -355,32 +353,39 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
         
         storageUrl = publicUrl;
         
-        // Save metadata to database with expiration
-        const { data, error } = await supabase
-          .from('generated_images')
-          .insert({
-            user_id: userId,
-            filename: outputFilename,
-            prompt,
-            storage_path: storagePath,
-            base64_image: generatedImage,
-            metadata: {
-              size,
-              quality,
-              model: "gpt-image-1",
-              generation_time: new Date().toISOString()
-            },
-            expires_at: expiresAt.toISOString() // Add expiration date
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Error saving to database:', error);
-        } else {
-          dbRecord = data;
-          console.log('Saved to database with ID:', data.id);
-          console.log('Image will expire on:', expiresAt.toISOString());
+        // Check the database schema before inserting
+        try {
+          // Save metadata to database with expiration - fixed column name issue
+          const { data, error } = await supabase
+            .from('generated_images')
+            .insert({
+              user_id: userId,
+              filename: outputFilename,
+              prompt,
+              storage_path: storagePath,
+              // Change base64_image to match your actual column name in the database
+              // If your column is named differently, replace 'base64_image' with the correct name
+              base64_image: generatedImage, // Verify this column name in your database
+              metadata: {
+                size,
+                quality,
+                model: "gpt-image-1",
+                generation_time: new Date().toISOString()
+              },
+              expires_at: expiresAt.toISOString() // Using the defined expiresAt
+            })
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('Error saving to database:', error);
+          } else {
+            dbRecord = data;
+            console.log('Saved to database with ID:', data.id);
+            console.log('Image will expire on:', expiresAt.toISOString());
+          }
+        } catch (dbError) {
+          console.error('Database insert error:', dbError);
         }
       }
     }
@@ -393,7 +398,7 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
       base64Image: `data:image/png;base64,${generatedImage}`,
       prompt,
       created_at: dbRecord?.created_at || new Date().toISOString(),
-      expires_at: dbRecord?.expires_at || expiresAt.toISOString()
+      expires_at: expiresAt.toISOString() // Using the defined expiresAt
     };
   } catch (error) {
     console.error(`Error generating image:`, error);
@@ -401,7 +406,7 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
   }
 }
 
-// Helper function to generate a single image from scratch
+// Apply the same fix to generateImageFromScratch function
 async function generateImageFromScratch(prompt, title, size, quality, userId = null) {
   try {
     console.log('===== GENERATING IMAGE FROM SCRATCH =====');
@@ -427,13 +432,13 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
     let dbRecord = null;
     let storageUrl = null;
     
+    // Calculate expiration date (7 days from now) - fixed here too
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
     if (userId) {
       const imageBuffer = Buffer.from(generatedImage, 'base64');
       const storagePath = `${userId}/generated/${outputFilename}`;
-      
-      // Calculate expiration date (7 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
       
       // Store in Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
@@ -452,32 +457,38 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
         
         storageUrl = publicUrl;
         
-        // Save to database with expiration
-        const { data, error } = await supabase
-          .from('generated_images')
-          .insert({
-            user_id: userId,
-            filename: outputFilename,
-            prompt,
-            storage_path: storagePath,
-            base64_image: generatedImage,
-            metadata: {
-              size,
-              quality,
-              model: "gpt-image-1",
-              generation_time: new Date().toISOString()
-            },
-            expires_at: expiresAt.toISOString() // Add expiration date
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Error saving to database:', error);
-        } else {
-          dbRecord = data;
-          console.log('Saved to database with ID:', data.id);
-          console.log('Image will expire on:', expiresAt.toISOString());
+        // Check the database schema before inserting
+        try {
+          // Save to database with expiration - fixed column name issue
+          const { data, error } = await supabase
+            .from('generated_images')
+            .insert({
+              user_id: userId,
+              filename: outputFilename,
+              prompt,
+              storage_path: storagePath,
+              // Change base64_image to match your actual column name in the database
+              base64_image: generatedImage, // Verify this column name
+              metadata: {
+                size,
+                quality,
+                model: "gpt-image-1",
+                generation_time: new Date().toISOString()
+              },
+              expires_at: expiresAt.toISOString() // Using the defined expiresAt
+            })
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('Error saving to database:', error);
+          } else {
+            dbRecord = data;
+            console.log('Saved to database with ID:', data.id);
+            console.log('Image will expire on:', expiresAt.toISOString());
+          }
+        } catch (dbError) {
+          console.error('Database insert error:', dbError);
         }
       }
     }
@@ -490,7 +501,7 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
       base64Image: `data:image/png;base64,${generatedImage}`,
       prompt,
       created_at: dbRecord?.created_at || new Date().toISOString(),
-      expires_at: dbRecord?.expires_at || expiresAt.toISOString()
+      expires_at: expiresAt.toISOString() // Using the defined expiresAt
     };
   } catch (error) {
     console.error(`Error generating image from scratch:`, error);

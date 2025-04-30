@@ -36,6 +36,52 @@ const AccountPage = () => {
   const [error, setError] = useState(null);
   const [cancelationLoading, setCancelationLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [credits, setCredits] = useState(null);
+  const [creditsLoading, setCreditsLoading] = useState(true);
+  const [creditsError, setCreditsError] = useState(null);
+
+  const loadUserCredits = async () => {
+    try {
+      setCreditsLoading(true);
+      setCreditsError(null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setCreditsLoading(false);
+        return;
+      }
+      const response = await fetch(`${API_URL}/users/credits`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          setCredits({
+            available_credits: 0,
+            total_credits_received: 0,
+            credits_used: 0
+          });
+        } else {
+          const errorData = await response.json();
+          setCreditsError(errorData.error || 'Failed to load credits');
+          throw new Error(errorData.error || 'Failed to load credits');
+        }
+      } else {
+        const data = await response.json();
+        setCredits(data);
+      }
+    } catch (err) {
+      setCreditsError(err.message);
+      console.error('Error loading user credits:', err);
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
+
+  const handleRefreshCredits = () => {
+    setCreditsLoading(true);
+    loadUserCredits();
+  };
 
   useEffect(() => {
     if (!user) {
@@ -98,6 +144,7 @@ const AccountPage = () => {
 
     fetchSubscription();
     fetchTransactions();
+    loadUserCredits();
   }, [user, navigate]);
 
   const handleCancelSubscription = async () => {
@@ -228,15 +275,14 @@ const AccountPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-soft-white text-charcoal">
+    <div className="min-h-screen flex bg-background text-charcoal dark:text-white">
       {/* Sidebar */}
-      <div className="w-16 bg-white shadow flex flex-col items-center py-6 space-y-6 border-r border-light-gray/40">
+      <div className="w-16 bg-background shadow flex flex-col items-center py-6 space-y-6 border-r border-border">
         <div className="flex items-center justify-center rounded-full bg-pastel-blue/20 p-2">
           <User size={20} className="text-pastel-blue" />
         </div>
         <SidebarIcon icon={<ImagePlus size={20} />} onClick={() => navigate('/create')} />
         <SidebarIcon icon={<Home size={20} />} onClick={() => navigate('/')} />
-        <SidebarIcon icon={<Settings size={20} />} />
         <div className="mt-auto">
           <SidebarIcon icon={<LogOut size={20} />} onClick={handleLogout} />
         </div>
@@ -245,19 +291,19 @@ const AccountPage = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-white px-6 py-4 shadow flex items-center justify-between border-b border-light-gray/40">
+        <header className="bg-background px-6 py-4 shadow flex items-center justify-between border-b border-border">
           <h1 className="text-2xl font-extrabold">
             <span className="text-pastel-blue">Account</span> Settings
           </h1>
           
           {/* Tabs */}
-          <div className="flex space-x-1 bg-soft-white rounded-lg p-1">
+          <div className="flex space-x-1 bg-background rounded-lg p-1">
             <button 
               onClick={() => setActiveTab('account')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'account'
-                  ? 'bg-white shadow-sm text-charcoal'
-                  : 'text-charcoal/70 hover:text-charcoal hover:bg-white/50'
+                  ? 'bg-pastel-blue/20 shadow-sm text-charcoal dark:text-white'
+                  : 'text-charcoal/70 dark:text-gray-300 hover:text-charcoal hover:bg-pastel-blue/10 dark:hover:text-white'
               }`}
             >
               Profile
@@ -266,8 +312,8 @@ const AccountPage = () => {
               onClick={() => setActiveTab('subscription')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'subscription'
-                  ? 'bg-white shadow-sm text-charcoal'
-                  : 'text-charcoal/70 hover:text-charcoal hover:bg-white/50'
+                  ? 'bg-pastel-blue/20 shadow-sm text-charcoal dark:text-white'
+                  : 'text-charcoal/70 dark:text-gray-300 hover:text-charcoal hover:bg-pastel-blue/10 dark:hover:text-white'
               }`}
             >
               Subscription
@@ -276,8 +322,8 @@ const AccountPage = () => {
               onClick={() => setActiveTab('transactions')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'transactions'
-                  ? 'bg-white shadow-sm text-charcoal'
-                  : 'text-charcoal/70 hover:text-charcoal hover:bg-white/50'
+                  ? 'bg-pastel-blue/20 shadow-sm text-charcoal dark:text-white'
+                  : 'text-charcoal/70 dark:text-gray-300 hover:text-charcoal hover:bg-pastel-blue/10 dark:hover:text-white'
               }`}
             >
               History
@@ -521,11 +567,17 @@ const AccountPage = () => {
           </div>
 
           {/* Right Sidebar */}
-          <div className="w-80 p-6 bg-white border-l border-light-gray/40 overflow-y-auto hidden md:block">
+          <div className="w-80 p-6 bg-background border-l border-border overflow-y-auto hidden md:block">
             {/* Credit Display */}
             <div className="mb-8">
               <h2 className="text-lg font-bold mb-3">Credits</h2>
-              <UserCredits />
+              <UserCredits 
+                credits={credits}
+                creditsLoading={creditsLoading}
+                subscription={subscription}
+                onRefresh={handleRefreshCredits}
+                error={creditsError}
+              />
             </div>
             
             {/* Quick Actions */}
@@ -573,7 +625,7 @@ const AccountPage = () => {
             {subscription && (
               <div className="mb-8">
                 <h2 className="text-lg font-bold mb-3">Subscription</h2>
-                <div className="bg-soft-white p-4 rounded-lg border border-light-gray/30">
+                <div className="bg-background p-4 rounded-lg border border-border">
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-medium">{formatPlanName(subscription.plan_id)}</div>
                     <div className={`text-xs px-2 py-0.5 rounded-full ${
@@ -609,7 +661,7 @@ const AccountPage = () => {
             {/* Account Summary */}
             <div>
               <h2 className="text-lg font-bold mb-3">Account Info</h2>
-              <div className="bg-soft-white p-4 rounded-lg border border-light-gray/30">
+              <div className="bg-background p-4 rounded-lg border border-border">
                 <div className="mb-4">
                   <h3 className="text-sm font-medium text-charcoal/70 mb-1">Email</h3>
                   <p className="text-charcoal font-medium truncate">{user?.email}</p>

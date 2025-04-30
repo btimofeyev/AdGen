@@ -145,14 +145,14 @@ const PricingPage = () => {
     };
   
     return (
-      <div className="min-h-screen bg-soft-white text-charcoal py-16 px-4">
+      <div className="min-h-screen bg-background text-charcoal dark:text-white py-16 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
               Simple, Transparent <span className="text-pastel-blue">Pricing</span>
             </h1>
-            <p className="text-xl text-charcoal/70 max-w-2xl mx-auto">
+            <p className="text-xl text-charcoal/70 dark:text-gray-300 max-w-2xl mx-auto">
               Choose the plan that fits your needs.
             </p>
           </div>
@@ -176,15 +176,15 @@ const PricingPage = () => {
   
           {checkoutMode ? (
             <div className="max-w-md mx-auto">
-              <div className="bg-white p-6 rounded-xl shadow-lg border border-light-gray/20 mb-4">
+              <div className="bg-background p-6 rounded-xl shadow-lg border border-border mb-4">
                 <button 
                   onClick={() => setCheckoutMode(false)} 
                   className="text-charcoal hover:text-charcoal mb-4 font-medium"
                 >
                   <span className="text-charcoal">← Back to plans</span>
                 </button>
-                <h2 className="text-2xl font-bold mb-2 text-charcoal">Subscribe to {selectedPlan.name}</h2>
-                <p className="text-charcoal/70 mb-6">${selectedPlan.price}/{selectedPlan.interval === 'month' ? 'mo' : 'one-time'}</p>
+                <h2 className="text-2xl font-bold mb-2 text-charcoal dark:text-white">Subscribe to {selectedPlan.name}</h2>
+                <p className="text-charcoal/70 dark:text-gray-300 mb-6">${selectedPlan.price}/{selectedPlan.interval === 'month' ? 'mo' : 'one-time'}</p>
                 
                 {renderCheckoutStatusMessage()}
                 
@@ -203,10 +203,10 @@ const PricingPage = () => {
               {plans.map((plan) => (
                 <div 
                   key={plan.id} 
-                  className={`bg-white rounded-lg border flex flex-col ${
+                  className={`bg-background rounded-lg border flex flex-col ${
                     plan.popular 
                       ? 'border-pastel-blue shadow-lg scale-105 relative z-10' 
-                      : 'border-light-gray/40'
+                      : 'border-border'
                   }`}
                 >
                   {plan.popular && (
@@ -218,16 +218,16 @@ const PricingPage = () => {
                   )}
                   
                   <div className="flex flex-col space-y-1.5 p-6">
-                    <h3 className="text-2xl font-semibold leading-none tracking-tight text-charcoal">
+                    <h3 className="text-2xl font-semibold leading-none tracking-tight text-charcoal dark:text-white">
                       {plan.name}
                     </h3>
                     <div className="mt-2">
-                      <span className="text-3xl font-bold text-charcoal">${plan.price}</span>
+                      <span className="text-3xl font-bold text-charcoal dark:text-white">${plan.price}</span>
                       {plan.interval !== 'one-time' && (
-                        <span className="text-charcoal/70 ml-1">/{plan.interval}</span>
+                        <span className="text-charcoal/70 dark:text-gray-300 ml-1">/{plan.interval}</span>
                       )}
                     </div>
-                    <p className="text-sm text-charcoal/70">{plan.description}</p>
+                    <p className="text-sm text-charcoal/70 dark:text-gray-300">{plan.description}</p>
                   </div>
                   
                   <div className="p-6 pt-0 flex-grow">
@@ -235,7 +235,7 @@ const PricingPage = () => {
                       {plan.features.map((feature, i) => (
                         <li key={i} className="flex items-start">
                           <CheckIcon className="h-5 w-5 text-pastel-blue mr-2 flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-charcoal">{feature}</span>
+                          <span className="text-sm text-charcoal dark:text-white">{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -247,10 +247,10 @@ const PricingPage = () => {
                       className={`w-full py-2 px-4 rounded-md font-medium ${
                         plan.popular 
                           ? 'bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal' 
-                          : 'bg-white border border-pastel-blue text-charcoal hover:bg-pastel-blue/10'
+                          : 'bg-background border border-pastel-blue text-charcoal hover:bg-pastel-blue/10 dark:text-white'
                       }`}
                     >
-                      <span className="text-charcoal">
+                      <span className="text-charcoal dark:text-white">
                         {plan.id === 'pay-as-you-go' ? 'Buy Pack' : 
                          plan.id === 'starter' ? 'Start Monthly' :
                          plan.id === 'pro' ? 'Upgrade to Pro' : 'Go Premium'}
@@ -267,23 +267,23 @@ const PricingPage = () => {
             <h2 className="text-3xl font-bold text-center mb-10">Frequently Asked Questions</h2>
             
             <div className="max-w-3xl mx-auto grid gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-light-gray/30">
+              <div className="bg-background p-6 rounded-xl shadow-sm border border-border">
                 <h3 className="text-xl font-semibold mb-2">What happens when I use all my credits?</h3>
-                <p className="text-charcoal/70">
+                <p className="text-charcoal/70 dark:text-gray-300">
                   Once you've used all your credits, you can upgrade to a higher tier plan or purchase a one-time pack to continue generating images.
                 </p>
               </div>
               
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-light-gray/30">
+              <div className="bg-background p-6 rounded-xl shadow-sm border border-border">
                 <h3 className="text-xl font-semibold mb-2">Can I cancel my subscription anytime?</h3>
-                <p className="text-charcoal/70">
+                <p className="text-charcoal/70 dark:text-gray-300">
                   Yes! You can cancel your subscription at any time. You'll continue to have access to your plan until the end of your current billing period.
                 </p>
               </div>
               
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-light-gray/30">
+              <div className="bg-background p-6 rounded-xl shadow-sm border border-border">
                 <h3 className="text-xl font-semibold mb-2">Do my unused credits roll over?</h3>
-                <p className="text-charcoal/70">
+                <p className="text-charcoal/70 dark:text-gray-300">
                   Monthly subscription credits refresh at the beginning of each billing cycle and do not roll over. One-time pack credits never expire.
                 </p>
               </div>

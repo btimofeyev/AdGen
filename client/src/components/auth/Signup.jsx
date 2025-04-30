@@ -50,7 +50,7 @@ const Signup = ({ isOpen, onClose }) => {
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Create Your Account</h2>
-          <p className="text-charcoal/60">Join SnapSceneAI and start creating</p>
+          <p className="text-charcoal/60 dark:text-gray-300">Join SnapSceneAI and start creating</p>
         </div>
         
         {success ? (
@@ -60,8 +60,8 @@ const Signup = ({ isOpen, onClose }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-charcoal">Check Your Email</h3>
-            <p className="text-charcoal/70">
+            <h3 className="text-xl font-semibold text-charcoal dark:text-white">Check Your Email</h3>
+            <p className="text-charcoal/70 dark:text-gray-300">
               We've sent a confirmation link to your email address.
               Please click the link to activate your account.
             </p>
@@ -150,7 +150,7 @@ const Signup = ({ isOpen, onClose }) => {
             </div>
             
             {error && (
-              <div className="p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-600 text-sm">
+              <div className="p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-600 dark:text-red-400 text-sm">
                 {error}
               </div>
             )}
@@ -166,7 +166,7 @@ const Signup = ({ isOpen, onClose }) => {
         )}
         
         <div className="text-center pt-4 border-t border-light-gray/30">
-          <p className="text-sm text-charcoal/70">
+          <p className="text-sm text-charcoal/70 dark:text-gray-400">
             Already have an account?{' '}
             <Link 
               to="/login" 

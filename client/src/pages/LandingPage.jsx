@@ -25,7 +25,7 @@ function LandingPage() {
   }, [carouselPairs.length]);
 
   return (
-    <div className="min-h-screen bg-soft-white text-charcoal overflow-hidden">
+    <div className="min-h-screen bg-background text-charcoal dark:text-white overflow-hidden">
       {/* Removed Navbar component from here */}
 
       {/* Hero Section */}
@@ -39,15 +39,15 @@ function LandingPage() {
           <h1 className="text-5xl font-extrabold mb-4">
             <span className="text-pastel-blue">Transform</span> Your Product Photos <span className="text-pastel-pink">Instantly</span>
           </h1>
-          <p className="text-xl text-charcoal/80 max-w-2xl mx-auto">
+          <p className="text-xl text-charcoal/80 dark:text-gray-300 max-w-2xl mx-auto">
             Upload, Pick a Scene, and Download Stunning Visuals — Ready for Your Storefront, Ads, and Social Media.
           </p>
         </motion.div>
           <motion.div style={{ y: heroImageY }} className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6">
           {['before', 'after'].map((type, idx) => (
-            <div key={idx} className="bg-white p-4 rounded-xl shadow-xl border border-light-gray/40">
-              <p className="text-center text-sm mb-2 text-charcoal/60 font-semibold">{type === 'before' ? 'Before' : 'After'}</p>
-              <div className="relative w-full h-64 overflow-hidden rounded-lg bg-soft-white">
+            <div key={idx} className="bg-background p-4 rounded-xl shadow-xl border border-light-gray/40 dark:border-border">
+              <p className="text-center text-sm mb-2 text-charcoal/60 dark:text-gray-400 font-semibold">{type === 'before' ? 'Before' : 'After'}</p>
+              <div className="relative w-full h-64 overflow-hidden rounded-lg bg-background">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={carouselPairs[currentIndex][type]}
@@ -67,9 +67,9 @@ function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-       <section className="py-20 bg-white">
+       <section className="py-20 bg-background">
         <div className="max-w-6xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold mb-16 text-charcoal relative">
+          <h2 className="text-4xl font-bold mb-16 text-charcoal dark:text-white relative">
             How SnapSceneAI Works
             <div className="absolute w-24 h-1 bg-pastel-blue bottom-0 left-1/2 transform -translate-x-1/2 -mb-4"></div>
           </h2>
@@ -92,10 +92,10 @@ function LandingPage() {
                 description: "Generate shop-perfect images that drive more clicks and faster sales."
               }
             ].map((step, idx) => (
-              <div key={idx} className="bg-soft-white rounded-xl p-6 shadow-sm border border-light-gray/40 hover:shadow-md transition-shadow">
+              <div key={idx} className="bg-background rounded-xl p-6 shadow-sm border border-light-gray/40 dark:border-border hover:shadow-md transition-shadow">
                 <div className="text-4xl mb-4">{step.icon}</div>
-                <h3 className="text-xl font-semibold mb-3 text-charcoal">{step.title}</h3>
-                <p className="text-charcoal/70">{step.description}</p>
+                <h3 className="text-xl font-semibold mb-3 text-charcoal dark:text-white">{step.title}</h3>
+                <p className="text-charcoal/70 dark:text-gray-300">{step.description}</p>
               </div>
             ))}
           </div>
@@ -103,11 +103,11 @@ function LandingPage() {
       </section>
 
       {/* Features Section */}
-       <section className="py-20 bg-white">
+       <section className="py-20 bg-background">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-charcoal">Why Choose SnapSceneAI?</h2>
-            <p className="text-charcoal/70 max-w-2xl mx-auto">
+            <h2 className="text-4xl font-bold mb-4 text-charcoal dark:text-white">Why Choose SnapSceneAI?</h2>
+            <p className="text-charcoal/70 dark:text-gray-300 max-w-2xl mx-auto">
               Our platform makes professional ad creation accessible to everyone, regardless of design skills.
             </p>
           </div>
@@ -141,15 +141,15 @@ function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
-                className="bg-soft-white p-6 rounded-xl border border-light-gray/40 hover:shadow-md transition-shadow"
+                className="bg-background p-6 rounded-xl border border-light-gray/40 dark:border-border hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start">
-                  <div className="mr-4 mt-1 p-2 bg-white rounded-lg shadow-sm">
+                  <div className="mr-4 mt-1 p-2 bg-background rounded-lg shadow-sm">
                     {feature.icon}
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold mb-2 text-charcoal">{feature.title}</h3>
-                    <p className="text-charcoal/70">{feature.description}</p>
+                    <h3 className="text-xl font-semibold mb-2 text-charcoal dark:text-white">{feature.title}</h3>
+                    <p className="text-charcoal/70 dark:text-gray-300">{feature.description}</p>
                   </div>
                 </div>
               </motion.div>
@@ -159,16 +159,16 @@ function LandingPage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-24 bg-primary-gradient text-charcoal text-center">
+      <section className="py-24 bg-primary-gradient dark:bg-[#23262F] text-charcoal dark:text-white text-center">
          <div className="max-w-4xl mx-auto px-6">
           <h2 className="text-4xl md:text-5xl font-extrabold mb-6">Sell Smarter. Create Faster. Look Better.</h2>
-          <p className="text-lg mb-10 text-charcoal/80">Don't let bad photos cost you sales. Boost your store's success in minutes.</p>
+          <p className="text-lg mb-10 text-charcoal/80 dark:text-gray-300">Don't let bad photos cost you sales. Boost your store's success in minutes.</p>
           <div className="flex flex-col md:flex-row gap-4 justify-center items-center mt-6">
             <MotionLink
               to="/signup"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-white text-charcoal font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-white/90 transition-all"
+              className="bg-white dark:bg-pastel-blue text-charcoal dark:text-[#181A20] font-extrabold text-lg rounded-full px-10 py-5 shadow-xl hover:bg-white/90 dark:hover:bg-pastel-blue/80 transition-all"
             >
               Start Free Today
             </MotionLink>
@@ -185,25 +185,25 @@ function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 md:px-8 border-t border-light-gray/40 bg-white">
+      <footer className="py-12 px-4 md:px-8 border-t border-light-gray/40 dark:border-border bg-background text-charcoal dark:text-white">
          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-8 md:mb-0">
             <h2 className="text-2xl font-bold flex items-center">
               <Sparkles className="h-6 w-6 text-pastel-blue mr-2" />
               SnapSceneAI
             </h2>
-            <p className="text-charcoal/60 mt-2">Transform images into engaging visuals</p>
+            <p className="text-charcoal/60 dark:text-gray-400 mt-2">Transform images into engaging visuals</p>
           </div>
 
           <div className="flex gap-6">
             {["Features", "Pricing", "Examples", "Support"].map((item, idx) => (
-              <a key={idx} href={`/${item.toLowerCase()}`} className="text-charcoal/70 hover:text-pastel-blue transition-colors">
+              <a key={idx} href={`/${item.toLowerCase()}`} className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
                 {item}
               </a>
             ))}
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-light-gray/40 text-center text-charcoal/50 text-sm">
+        <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-light-gray/40 dark:border-border text-center text-charcoal/50 dark:text-gray-500 text-sm">
           © 2025 SnapSceneAI. All rights reserved.
         </div>
       </footer>

@@ -44,7 +44,7 @@ const Login = ({ isOpen, onClose }) => {
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Welcome Back</h2>
-          <p className="text-charcoal/60">Log in to your SnapSceneAI account</p>
+          <p className="text-charcoal/60 dark:text-gray-300">Log in to your SnapSceneAI account</p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -82,7 +82,7 @@ const Login = ({ isOpen, onClose }) => {
           </div>
           
           {error && (
-            <div className="p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-600 text-sm">
+            <div className="p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-600 dark:text-red-400 text-sm">
               {error}
             </div>
           )}
@@ -97,7 +97,7 @@ const Login = ({ isOpen, onClose }) => {
         </form>
         
         <div className="text-center pt-4 border-t border-light-gray/30">
-          <p className="text-sm text-charcoal/70">
+          <p className="text-sm text-charcoal/70 dark:text-gray-400">
             Don't have an account?{' '}
             <Link 
               to="/signup" 

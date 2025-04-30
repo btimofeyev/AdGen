@@ -3,7 +3,7 @@ import React from "react";
 export function Card({ className = "", ...props }) {
   return (
     <div
-      className={`rounded-lg border border-slate-200 bg-white text-slate-950 shadow-sm ${className}`}
+      className={`rounded-lg border border-border bg-background text-foreground shadow-sm ${className}`}
       {...props}
     />
   );
@@ -16,14 +16,14 @@ export function CardHeader({ className = "", ...props }) {
 export function CardTitle({ className = "", ...props }) {
   return (
     <h3
-      className={`text-2xl font-semibold leading-none tracking-tight ${className}`}
+      className={`text-2xl font-semibold leading-none tracking-tight card-title ${className}`}
       {...props}
     />
   );
 }
 
 export function CardDescription({ className = "", ...props }) {
-  return <p className={`text-sm text-slate-500 ${className}`} {...props} />;
+  return <p className={`text-sm card-description ${className}`} {...props} />;
 }
 
 export function CardContent({ className = "", ...props }) {

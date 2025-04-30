@@ -23,7 +23,7 @@ const AuthModal = ({ isOpen, onClose, children }) => (
         onClick={onClose}
       >
         <motion.div
-          className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative"
+          className="bg-background text-foreground rounded-2xl shadow-2xl p-8 w-full max-w-md relative border border-border"
           initial="hidden"
           animate="visible"
           exit="hidden"

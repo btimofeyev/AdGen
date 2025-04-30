@@ -25,15 +25,15 @@
   }
 
   .dark {
-    --background: 222 20% 10%;
-    --foreground: 0 0% 100%;
-    --primary: 187 70% 58%;
+    --background: 222 20% 10%; /* #181A20 */
+    --foreground: 0 0% 100%;   /* #fff */
+    --primary: 187 70% 58%;    /* #4ecae6 */
     --primary-foreground: 222 20% 10%;
-    --secondary: 276 70% 70%;
+    --secondary: 276 70% 70%;  /* #b18be8 */
     --secondary-foreground: 222 20% 10%;
-    --accent: 344 80% 65%;
+    --accent: 344 80% 65%;     /* #e26a8d */
     --accent-foreground: 222 20% 10%;
-    --border: 220 16% 30%;
+    --border: 220 16% 30%;     /* #23262F */
     --input: 220 16% 30%;
     --ring: 187 70% 58%;
   }
@@ -78,12 +78,30 @@
   border-color: #D1D5DB;
 }
 
+/* Dark mode overrides for utility classes */
+.dark .bg-soft-white { background-color: #181A20 !important; }
+.dark .bg-pastel-blue { background-color: #4ecae6 !important; }
+.dark .bg-soft-lavender { background-color: #b18be8 !important; }
+.dark .bg-pastel-pink { background-color: #e26a8d !important; }
+.dark .text-charcoal { color: #fff !important; }
+.dark .text-pastel-blue { color: #4ecae6 !important; }
+.dark .text-soft-lavender { color: #b18be8 !important; }
+.dark .text-pastel-pink { color: #e26a8d !important; }
+.dark .border-light-gray { border-color: #23262F !important; }
+
 /* Gradients using our new palette */
 .bg-primary-gradient {
   background: linear-gradient(135deg, #7BDFF2 0%, #D5A9F6 100%);
 }
 .bg-secondary-gradient {
   background: linear-gradient(135deg, #D5A9F6 0%, #FFA5C2 100%);
+}
+
+.dark .bg-primary-gradient {
+  background: linear-gradient(135deg, #4ecae6 0%, #b18be8 100%) !important;
+}
+.dark .bg-secondary-gradient {
+  background: linear-gradient(135deg, #b18be8 0%, #e26a8d 100%) !important;
 }
 
 /* Fix for button text color */
@@ -99,4 +117,24 @@
   .card-description {
     color: #2A2E35 !important;
   }
+}
+
+.dark button { color: #fff !important; }
+.dark .card-title { color: #fff !important; }
+.dark .card-description { color: #fff !important; }
+
+/* Custom scrollbar styling for dark mode */
+::-webkit-scrollbar {
+  width: 10px;
+  background: #F9FAFB;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 8px;
+}
+.dark ::-webkit-scrollbar {
+  background: #181A20;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #23262F;
 }
