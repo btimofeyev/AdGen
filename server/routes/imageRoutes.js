@@ -1,3 +1,4 @@
+// server/routes/imageRoutes.js
 const express = require('express');
 const router = express.Router();
 const imageController = require('../controllers/imageController');
@@ -20,6 +21,7 @@ const storage = multer.diskStorage({
   }
 });
 
+// Set file size limit to 10MB
 const upload = multer({ 
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 }
@@ -28,13 +30,21 @@ const upload = multer({
 // Public routes
 router.get('/themes-formats', imageController.getThemesAndFormats);
 
-// Routes that work with optional authentication
+// Routes that work with optional authentication - Single file upload
 router.post('/upload', optionalAuth, upload.single('image'), imageController.uploadImage);
+
+// New route for multiple file uploads - up to 4 images
+router.post('/upload-multiple', optionalAuth, upload.array('images', 4), imageController.uploadImages);
+
+// Generation routes
 router.post('/generate', optionalAuth, (req, res) => {
   req.body.count = 1;
   return imageController.generateMultipleAds(req, res);
 });
 router.post('/generate/multiple', optionalAuth, imageController.generateMultipleAds);
+
+// New route for generating with multiple reference images
+router.post('/generate/multiple-references', optionalAuth, imageController.generateWithMultipleReferences);
 
 // Protected routes - require authentication
 router.get('/user/images', verifyToken, imageController.getUserImages);

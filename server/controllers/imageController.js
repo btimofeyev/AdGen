@@ -16,7 +16,7 @@ const openai = new OpenAI({
 const BUCKET_NAME = 'scenesnapai';
 const TEMP_FILE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
 
-// Upload image for generation
+// Upload single image for generation
 const uploadImage = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -37,7 +37,211 @@ const uploadImage = async (req, res) => {
   });
 };
 
-// Generate multiple ads with prompt and count
+// Upload multiple images for generation
+const uploadImages = async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  const filePaths = [];
+  const fileNames = [];
+  
+  // Process each uploaded file
+  for (const file of req.files) {
+    const filePath = file.path;
+    
+    // Mark the file with timestamp for cleanup
+    fs.writeFileSync(`${filePath}.meta`, JSON.stringify({
+      uploadTime: Date.now(),
+      userID: req.user?.id || 'anonymous',
+      isTemporary: true
+    }));
+    
+    filePaths.push(filePath);
+    fileNames.push(file.filename);
+  }
+  
+  return res.status(200).json({ 
+    message: 'Files uploaded successfully',
+    filenames: fileNames,
+    filepaths: filePaths
+  });
+};
+
+// Generate multiple ads with multiple reference images
+const generateWithMultipleReferences = async (req, res) => {
+  try {
+    const { filepaths, prompt, count = 1, requestId: clientRequestId } = req.body;
+    const userId = req.user ? req.user.id : null;
+    
+    // Create unique request ID
+    const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Ensure user has credits if authenticated
+    if (userId) {
+      await ensureUserHasCredits(userId);
+      
+      const hasCredits = await hasEnoughCredits(userId, count);
+      if (!hasCredits) {
+        return res.status(402).json({ 
+          error: 'Insufficient credits', 
+          message: `You need ${count} credits to generate ${count} images.` 
+        });
+      }
+    }
+    
+    // Validate filepaths
+    if (!filepaths || !Array.isArray(filepaths) || filepaths.length === 0) {
+      return res.status(400).json({ 
+        error: 'Invalid file paths', 
+        message: 'At least one valid file path is required.' 
+      });
+    }
+
+    // Check if all files exist
+    for (const filepath of filepaths) {
+      if (!fs.existsSync(filepath)) {
+        return res.status(400).json({ 
+          error: 'Invalid file path', 
+          message: `The file ${filepath} was not found. Please upload your images again.` 
+        });
+      }
+    }
+    
+    if (!prompt) {
+      return res.status(400).json({ 
+        error: 'Missing prompt', 
+        message: 'A prompt is required for image generation.' 
+      });
+    }
+    
+    const generationPromises = [];
+    
+    for (let i = 0; i < count; i++) {
+      try {
+        generationPromises.push(generateImageWithMultipleReferences(
+          filepaths,
+          prompt,
+          `Generated Image ${i+1}`,
+          "1024x1024",
+          "low",
+          userId
+        ));
+      } catch (error) {
+        generationPromises.push(Promise.resolve({ error: error.message }));
+      }
+    }
+    
+    const results = await Promise.allSettled(generationPromises);
+    const processedResults = results.map(result =>
+      result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Failed to generate image' }
+    );
+    
+    // Deduct credits for successful generations
+    if (userId) {
+      const successfulCount = processedResults.filter(r => !r.error).length;
+      if (successfulCount > 0) {
+        await deductCredits(userId, successfulCount, 'image_generation', { 
+          prompt, 
+          count: successfulCount, 
+          with_reference: true,
+          reference_count: filepaths.length,
+          success_rate: `${successfulCount}/${count}`,
+          request_id: requestId
+        });
+      }
+    }
+    
+    // Mark all files for cleanup
+    filepaths.forEach(filepath => {
+      markFileForCleanup(filepath, userId);
+    });
+    
+    return res.status(200).json({
+      message: 'Multiple images generated',
+      results: processedResults
+    });
+    
+  } catch (error) {
+    return res.status(500).json({ 
+      error: 'Failed to generate images',
+      details: error.message
+    });
+  }
+};
+
+// Generate images with multiple reference images
+async function generateImageWithMultipleReferences(filepaths, prompt, title, size, quality, userId = null) {
+  try {
+    // Convert all images to OpenAI-compatible format
+    const imageFiles = [];
+    
+    for (const filepath of filepaths) {
+      const fileName = path.basename(filepath);
+      const mimeType = getMimeType(filepath);
+      const imageBuffer = fs.readFileSync(filepath);
+      
+      const imageFile = await OpenAI.toFile(imageBuffer, fileName, { type: mimeType });
+      imageFiles.push(imageFile);
+    }
+    
+    // Call OpenAI API with multiple images
+    const result = await openai.images.edit({
+      model: "gpt-image-1",
+      image: imageFiles, // Pass array of images
+      prompt,
+      n: 1,
+      size,
+      quality
+    });
+    
+    const generatedImage = result.data[0].b64_json;
+    const outputFilename = `generated_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+    
+    let dbRecord = null;
+    let storageUrl = null;
+    
+    // Calculate expiration date (7 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    if (userId) {
+      // Store in Supabase with additional metadata
+      const imageData = await storeImageInSupabase(
+        userId, 
+        outputFilename, 
+        generatedImage, 
+        prompt, 
+        size, 
+        quality, 
+        expiresAt,
+        { 
+          referenceImagesCount: filepaths.length,
+          useMultipleReferences: true
+        }
+      );
+      
+      dbRecord = imageData.dbRecord;
+      storageUrl = imageData.storageUrl;
+    }
+    
+    return {
+      id: dbRecord?.id,
+      title,
+      description: prompt,
+      imageUrl: storageUrl,
+      base64Image: `data:image/png;base64,${generatedImage}`,
+      prompt,
+      created_at: dbRecord?.created_at || new Date().toISOString(),
+      expires_at: expiresAt.toISOString()
+    };
+  } catch (error) {
+    console.error('Error generating image with multiple references:', error);
+    throw error;
+  }
+}
+
+// Generate multiple ads with prompt and count (single reference image)
 const generateMultipleAds = async (req, res) => {
   try {
     const { filepath, prompt, count = 1, requestId: clientRequestId } = req.body;
@@ -311,8 +515,8 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
   }
 }
 
-// Helper function to store image in Supabase
-async function storeImageInSupabase(userId, filename, base64Image, prompt, size, quality, expiresAt) {
+// Updated helper function to store image in Supabase with additional metadata
+async function storeImageInSupabase(userId, filename, base64Image, prompt, size, quality, expiresAt, additionalMetadata = {}) {
   try {
     const imageBuffer = Buffer.from(base64Image, 'base64');
     const storagePath = `${userId}/generated/${filename}`;
@@ -334,6 +538,15 @@ async function storeImageInSupabase(userId, filename, base64Image, prompt, size,
       .from(BUCKET_NAME)
       .getPublicUrl(storagePath);
     
+    // Combine base metadata with additional metadata
+    const metadata = {
+      size,
+      quality,
+      model: "gpt-image-1",
+      generation_time: new Date().toISOString(),
+      ...additionalMetadata
+    };
+    
     // Save to database
     const { data, error } = await supabase
       .from('generated_images')
@@ -343,12 +556,7 @@ async function storeImageInSupabase(userId, filename, base64Image, prompt, size,
         prompt,
         storage_path: storagePath,
         base64_image: base64Image,
-        metadata: {
-          size,
-          quality,
-          model: "gpt-image-1",
-          generation_time: new Date().toISOString()
-        },
+        metadata,
         expires_at: expiresAt.toISOString()
       })
       .select()
@@ -389,6 +597,10 @@ const getUserImages = async (req, res) => {
       const expiresAt = new Date(img.expires_at);
       const daysRemaining = Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)));
       
+      // Check for multi-reference metadata
+      const isMultiReference = img.metadata?.useMultipleReferences || false;
+      const referenceCount = img.metadata?.referenceImagesCount || 1;
+      
       return {
         id: img.id,
         title: img.filename || 'Generated Image',
@@ -405,7 +617,9 @@ const getUserImages = async (req, res) => {
         daysRemaining: daysRemaining,
         expirationText: daysRemaining === 0 ? 'Expires today' : 
                         daysRemaining === 1 ? 'Expires tomorrow' : 
-                        `Expires in ${daysRemaining} days`
+                        `Expires in ${daysRemaining} days`,
+        isMultiReference,
+        referenceCount
       };
     });
 
@@ -666,7 +880,9 @@ const cleanupTemporaryFiles = () => {
 
 module.exports = {
   uploadImage,
+  uploadImages,
   generateMultipleAds,
+  generateWithMultipleReferences,
   getUserImages,
   deleteUserImage,
   getSupabaseImage,

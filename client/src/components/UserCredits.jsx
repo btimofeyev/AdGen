@@ -1,18 +1,16 @@
 // client/src/components/UserCredits.jsx
+// UserCredits.jsx - Displays user credit information and subscription status
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, AlertCircle, Zap } from 'lucide-react';
+import { AlertCircle, Zap, CreditCard } from 'lucide-react';
 import { Button } from './ui/button';
 
 const UserCredits = ({ credits, creditsLoading, subscription, onRefresh, error }) => {
-  // Display different UI based on subscription status
   const hasSubscription = subscription && subscription.status === 'active';
   const isLowOnCredits = credits && credits.available_credits < 5;
-  // Calculate total credits (available + used)
-  const totalCredits = credits?.total_credits_received || 0;
+  const totalCredits = credits?.total_credits_received || 0
   const usedCredits = credits?.credits_used || 0;
   const availableCredits = credits?.available_credits || 0;
-  // Calculate percentage for progress bar (used out of total)
   const usagePercentage = totalCredits > 0 ? (usedCredits / totalCredits) * 100 : 0;
 
   if (creditsLoading) {
@@ -54,13 +52,13 @@ const UserCredits = ({ credits, creditsLoading, subscription, onRefresh, error }
           <Button onClick={onRefresh} size="xs" variant="ghost" className="ml-2">↻</Button>
         )}
       </div>
-      {/* Credit Count with large number */}
+
       <div className="mb-2">
         <div className="text-3xl font-bold text-charcoal dark:text-white">
           {availableCredits}
         </div>
       </div>
-      {/* Progress Bar */}
+
       <div className="mb-3">
         <div className="h-2 w-full bg-light-gray/30 dark:bg-[#23262F]/60 rounded-full overflow-hidden">
           <div 
@@ -73,12 +71,14 @@ const UserCredits = ({ credits, creditsLoading, subscription, onRefresh, error }
           <span>{totalCredits} total</span>
         </div>
       </div>
+
       {isLowOnCredits && !hasSubscription && (
         <div className="bg-pastel-pink/10 dark:bg-pastel-pink/20 rounded-md p-2 mb-3 text-xs text-red-600 dark:text-red-400 flex items-center">
           <AlertCircle className="h-3 w-3 mr-1 flex-shrink-0" />
           <span>Low on credits! Purchase more to continue creating.</span>
         </div>
       )}
+
       {hasSubscription ? (
         <div className="text-xs text-charcoal/70 dark:text-gray-300 mb-3">
           Your {subscription.plan_id} plan renews on {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'upcoming billing date'}

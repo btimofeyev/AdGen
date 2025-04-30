@@ -1,4 +1,4 @@
-// Updated AdCreator.jsx with enhanced UI components
+// Updated AdCreator.jsx with multi-image upload support
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -7,11 +7,12 @@ import {
   ImagePlus,
   Home,
   User,
-  Settings,
   LogOut,
   Zap,
   RefreshCw,
   Download,
+  Copy,
+  Plus,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -30,9 +31,11 @@ function AdCreator() {
   const [subscription, setSubscription] = useState(null);
   const [creditsError, setCreditsError] = useState(null);
 
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [uploadedFilePath, setUploadedFilePath] = useState(null);
+  // Replace single file state with arrays for multiple files
+  const [files, setFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [uploadedFilePaths, setUploadedFilePaths] = useState([]);
+
   const [prompt, setPrompt] = useState("");
   const [numImages, setNumImages] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -47,7 +50,7 @@ function AdCreator() {
   // State for tracking if a generation request is in progress
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState(0);
-  
+
   // Caching refs to prevent unnecessary reloads
   const creditsLoadedRef = useRef(false);
   const imagesLoadedRef = useRef(false);
@@ -80,15 +83,14 @@ function AdCreator() {
         creditsLoadedRef.current = true;
       }
     }
-    // Only run on initial mount or user change
   }, [user]);
 
-  // Load user credits
+  // Load user credits - unchanged
   const loadUserCredits = async () => {
     try {
       setCreditsLoading(true);
       setCreditsError(null);
-      // Get auth token
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -105,7 +107,6 @@ function AdCreator() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          // No credits found, this is okay for new users
           setCredits({
             available_credits: 0,
             total_credits_received: 0,
@@ -128,10 +129,9 @@ function AdCreator() {
     }
   };
 
-  // Load user subscription
+  // Load user subscription - unchanged
   const loadUserSubscription = async () => {
     try {
-      // Get auth token
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -156,13 +156,12 @@ function AdCreator() {
     }
   };
 
-  // Function to load user's saved images
+  // Function to load user's saved images - unchanged
   const loadUserImages = async () => {
     try {
       setIsLoadingImages(true);
-      setError(null); // Clear any previous errors
+      setError(null);
 
-      // Get auth token for the request
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -182,7 +181,6 @@ function AdCreator() {
         },
       });
 
-      // Log the raw response for debugging
       console.log("Image fetch response status:", response.status);
 
       if (!response.ok) {
@@ -200,19 +198,14 @@ function AdCreator() {
       }
 
       const data = await response.json();
-
-      // Debug output to see what we're getting from the server
       console.log("Received images data from server:", data);
 
       if (data.images && Array.isArray(data.images)) {
         console.log(`Loaded ${data.images.length} images from server`);
 
-        // Add a unique id to each image if not present and ensure base64Image is properly formatted
         const processedImages = data.images.map((img, index) => {
-          // Make sure we have an ID
           const imgId = img.id || `temp-${Date.now()}-${index}`;
 
-          // Ensure base64Image has the correct prefix if it doesn't already
           let base64Image = img.base64Image;
           if (base64Image && !base64Image.startsWith("data:image/")) {
             base64Image = `data:image/png;base64,${base64Image}`;
@@ -222,7 +215,6 @@ function AdCreator() {
             ...img,
             id: imgId,
             base64Image: base64Image,
-            // Add placeholder values for any missing required fields
             created_at: img.created_at || new Date().toISOString(),
             prompt: img.prompt || "Generated image",
           };
@@ -231,8 +223,6 @@ function AdCreator() {
         setGeneratedImages(processedImages);
       } else {
         console.log("No images found or invalid response format");
-        // Don't reset images if there's no data - might be a server issue
-        // Only set empty if explicitly empty from server
         if (data.images && data.images.length === 0) {
           setGeneratedImages([]);
         }
@@ -240,30 +230,60 @@ function AdCreator() {
     } catch (err) {
       console.error("Error loading user images:", err);
       setError(`Failed to load your gallery: ${err.message}`);
-      // Don't reset images array on error - keep old ones visible
     } finally {
       setIsLoadingImages(false);
     }
   };
 
+  // Updated to handle multiple file uploads
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
+    const selectedFiles = Array.from(e.target.files);
 
-    // Reset states
-    setError(null);
-    setFile(selectedFile);
-    setUploadedFilePath(null);
+    if (selectedFiles.length === 0) return;
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result);
-    reader.readAsDataURL(selectedFile);
+    // Limit to 4 files maximum
+    const filesToProcess = selectedFiles.slice(0, 4);
+
+    if (selectedFiles.length > 4) {
+      alert(
+        "You can only upload up to 4 images at a time. Only the first 4 will be processed."
+      );
+    }
+
+    setFiles(filesToProcess);
+    setUploadedFilePaths([]);
+
+    // Generate previews for all selected files
+    const newPreviews = [];
+
+    filesToProcess.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newPreviews.push(e.target.result);
+        if (newPreviews.length === filesToProcess.length) {
+          setPreviews(newPreviews);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  // Upload the image to the server
-  const uploadImage = async () => {
-    if (!file) return null;
+  // Removes a specific image from the uploads
+  const handleRemoveImage = (index) => {
+    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+    setPreviews((prevPreviews) => prevPreviews.filter((_, i) => i !== index));
+
+    // Also clear the related uploaded file path if it exists
+    setUploadedFilePaths((prevPaths) => {
+      const newPaths = [...prevPaths];
+      newPaths[index] = undefined;
+      return newPaths.filter((path) => path !== undefined);
+    });
+  };
+
+  // Upload multiple images to the server
+  const uploadImages = async () => {
+    if (files.length === 0) return [];
 
     try {
       // Get auth token
@@ -271,32 +291,39 @@ function AdCreator() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      const formData = new FormData();
-      formData.append("image", file);
+      const filePaths = [];
 
-      const response = await fetch(`${API_URL}/upload`, {
-        method: "POST",
-        headers: {
-          Authorization: session ? `Bearer ${session.access_token}` : "",
-        },
-        body: formData,
-      });
+      // Upload each file individually
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("image", file);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload image");
+        const response = await fetch(`${API_URL}/upload`, {
+          method: "POST",
+          headers: {
+            Authorization: session ? `Bearer ${session.access_token}` : "",
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to upload image");
+        }
+
+        const data = await response.json();
+        filePaths.push(data.filepath);
       }
 
-      const data = await response.json();
-      return data.filepath;
+      return filePaths;
     } catch (err) {
       setError(`Upload error: ${err.message}`);
-      return null;
+      return [];
     }
   };
 
-  // Generate images based on the uploaded image and prompt
-  const generateImages = async (filePath) => {
+  // Modified to handle multiple reference images
+  const generateImages = async (filePaths) => {
     try {
       // Get auth token
       const {
@@ -309,17 +336,17 @@ function AdCreator() {
         .substring(2, 8)}`;
 
       const requestBody = {
-        filepath: filePath,
+        filepaths: filePaths, // Now an array of file paths
         prompt: prompt,
         count: numImages,
-        requestId, // Include request ID for server-side tracking
+        requestId,
       };
 
       console.log(
-        `Sending image generation request: ${requestId} for ${numImages} images`
+        `Sending multi-image generation request: ${requestId} for ${numImages} images with ${filePaths.length} reference images`
       );
 
-      const response = await fetch(`${API_URL}/generate/multiple`, {
+      const response = await fetch(`${API_URL}/generate/multiple-references`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -349,15 +376,13 @@ function AdCreator() {
     }
   };
 
-  // Generate images from scratch (without reference image)
+  // Generate images from scratch - unchanged
   const generateImagesFromScratch = async () => {
     try {
-      // Get auth token
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      // Generate a unique ID for this request
       const requestId = `${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)}`;
@@ -365,7 +390,7 @@ function AdCreator() {
       const requestBody = {
         prompt: prompt,
         count: numImages,
-        requestId, // Include request ID for server-side tracking
+        requestId,
       };
 
       console.log(
@@ -402,6 +427,7 @@ function AdCreator() {
     }
   };
 
+  // Updated submit handler for multi-image support
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -436,7 +462,7 @@ function AdCreator() {
       .toString(36)
       .substring(2, 8)}`;
     console.log(
-      `Starting generation request: ${requestId} for ${numImages} images`
+      `Starting generation request: ${requestId} for ${numImages} images with ${files.length} reference images`
     );
 
     setLoading(true);
@@ -446,30 +472,19 @@ function AdCreator() {
     try {
       let results = [];
 
-      if (file) {
-        // For subsequent requests, always re-upload to ensure server has the file
-        let filePath = null;
+      if (files.length > 0) {
+        // For multiple files, always re-upload to ensure server has the files
+        const filePaths = await uploadImages();
 
-        // If we're quickly generating images again, always upload a fresh copy
-        // This ensures we don't run into file cleanup issues on the server
-        if (now - lastRequestTime < 30000) {
-          // If within 30 seconds of last request
-          console.log(
-            "Recent request detected - uploading fresh copy of image"
-          );
-          filePath = await uploadImage();
-        } else {
-          // Try to use existing path first, but fall back to re-uploading
-          filePath = uploadedFilePath || (await uploadImage());
+        if (filePaths.length === 0) {
+          throw new Error("Failed to upload images");
         }
 
-        if (!filePath) throw new Error("Failed to upload image");
+        // Save the file paths for future reference
+        setUploadedFilePaths(filePaths);
 
-        // Save the file path for future generations
-        setUploadedFilePath(filePath);
-
-        // Generate images with the uploaded image as reference
-        results = await generateImages(filePath);
+        // Generate images with the uploaded images as reference
+        results = await generateImages(filePaths);
       } else {
         // Generate images from scratch based only on the prompt
         results = await generateImagesFromScratch();
@@ -479,10 +494,10 @@ function AdCreator() {
         throw new Error("No images were generated");
       }
 
-      // Format the results with additional metadata - no explicit labels
+      // Format the results with additional metadata
       const formattedResults = results.map((result, index) => ({
         ...result,
-        id: result.id || Date.now() + index, // Use server-provided ID or generate one
+        id: result.id || Date.now() + index,
         timestamp: new Date().toISOString(),
       }));
 
@@ -491,9 +506,6 @@ function AdCreator() {
 
       // Refresh credits after generation
       handleRefreshCredits();
-
-      // Switch to gallery tab
-      setActiveTab("gallery");
     } catch (err) {
       setError(err.message);
       console.error("Error in generation process:", err);
@@ -503,7 +515,7 @@ function AdCreator() {
     }
   };
 
-  // Handle image download
+  // Handle image download - unchanged
   const handleDownload = (base64Image, index) => {
     const link = document.createElement("a");
     link.href = base64Image;
@@ -513,38 +525,33 @@ function AdCreator() {
     document.body.removeChild(link);
   };
 
-  // Copy image to clipboard
+  // Copy image to clipboard - unchanged
   const handleCopyImage = async (imageBase64, index) => {
     try {
-      // Convert the base64 string to a blob
       const fetchResponse = await fetch(imageBase64);
       const blob = await fetchResponse.blob();
 
-      // Create a ClipboardItem and write to clipboard
       const item = new ClipboardItem({ "image/png": blob });
       await navigator.clipboard.write([item]);
 
-      // You could add a toast notification here to confirm copy
       alert("Image copied to clipboard!");
     } catch (err) {
       console.error("Failed to copy image: ", err);
-      // Fallback for browsers that don't support clipboard API
       handleDownload(imageBase64, index);
     }
   };
 
-  // Handle opening the modal with a specific image
+  // Handle opening the modal with a specific image - unchanged
   const handleOpenModal = (image) => {
     setSelectedImage(image);
     setModalOpen(true);
   };
 
-  // Handle image deletion
+  // Handle image deletion - unchanged
   const handleDeleteImage = async (imageId) => {
     try {
       console.log("Attempting to delete image with ID:", imageId);
 
-      // Get auth token
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -553,7 +560,6 @@ function AdCreator() {
         return;
       }
 
-      // Log the request details
       console.log(
         "Sending delete request to:",
         `${API_URL}/user/images/${imageId}`
@@ -586,13 +592,10 @@ function AdCreator() {
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      // Response was successful
       console.log("Image deleted successfully");
 
-      // Remove the image from the state
       setGeneratedImages((prev) => prev.filter((img) => img.id !== imageId));
 
-      // Close modal if the deleted image was being displayed
       if (selectedImage && selectedImage.id === imageId) {
         setModalOpen(false);
       }
@@ -602,10 +605,8 @@ function AdCreator() {
     }
   };
 
-  // Handle downloading all images
+  // Handle downloading all images - unchanged
   const handleDownloadAll = () => {
-    // This would normally use a zip library like JSZip to download all images
-    // For now, just alert the user
     alert("Download all functionality would go here");
   };
 
@@ -631,72 +632,79 @@ function AdCreator() {
     }
   };
 
-  // Handle tab switching without reloading content
+  // Handle tab switching - unchanged
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
 
-  // Explicit refresh handlers
+  // Explicit refresh handlers - unchanged
   const handleRefreshCredits = () => {
     setCreditsLoading(true);
     loadUserCredits();
     creditsLoadedRef.current = true;
   };
+
   const handleRefreshImages = () => {
     setIsLoadingImages(true);
     loadUserImages();
     imagesLoadedRef.current = true;
   };
 
-  // Memoize the sidebar content to prevent re-rendering
-  const SidebarContent = useMemo(() => (
-    <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
-      {/* Credit Usage */}
+  // Updated upload preview component for multiple images
+  const UploadPreviewSection = () => {
+    return (
       <div className="mb-8">
-        <UserCredits 
-          credits={credits}
-          creditsLoading={creditsLoading}
-          subscription={subscription}
-          onRefresh={handleRefreshCredits}
-          error={creditsError}
-        />
-      </div>
+        <h2 className="text-lg font-bold mb-3">Your Products</h2>
 
-      {/* Upload Thumbnail */}
-      <div className="mb-8">
-        <h2 className="text-lg font-bold mb-3">Your Product</h2>
-        {preview ? (
-          <motion.div
-            className="relative rounded-xl overflow-hidden shadow-sm border border-[#23262F]/60 group"
-            whileHover={{
-              boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <img
-              src={preview}
-              alt="Uploaded"
-              className="object-contain w-full h-40"
-            />
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                setPreview(null);
-                setFile(null);
-                setUploadedFilePath(null);
-              }}
-              className="absolute top-2 right-2 bg-[#23262F] p-1.5 rounded-full shadow-md opacity-80 hover:opacity-100"
-            >
-              <X size={16} className="text-pastel-blue" />
-            </motion.button>
+        {previews.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            {previews.map((preview, index) => (
+              <motion.div
+                key={`preview-${index}`}
+                className="relative rounded-xl overflow-hidden shadow-sm border border-[#23262F]/60 group"
+                whileHover={{
+                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <img
+                  src={preview}
+                  alt={`Uploaded ${index + 1}`}
+                  className="object-contain w-full h-28"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute top-2 right-2 bg-[#23262F] p-1.5 rounded-full shadow-md opacity-80 hover:opacity-100 z-10"
+                >
+                  <X size={14} className="text-pastel-blue" />
+                </motion.button>
 
-            {/* Darkened overlay with prompt on hover */}
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-4">
-              <p className="text-white text-sm text-center font-medium">
-                {file?.name || "Your uploaded product image"}
-              </p>
-            </div>
-          </motion.div>
+                {/* Darkened overlay with file name on hover */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2">
+                  <p className="text-white text-xs text-center font-medium truncate">
+                    {files[index]?.name || `Image ${index + 1}`}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+
+            {/* Add more images button if less than 4 */}
+            {previews.length < 4 && (
+              <motion.button
+                whileHover={{
+                  scale: 1.02,
+                  backgroundColor: "rgba(123, 223, 242, 0.05)",
+                }}
+                whileTap={{ scale: 0.98 }}
+                className="h-28 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-pastel-blue/20 rounded-xl hover:bg-pastel-blue/10 transition-all"
+                onClick={() => fileInputRef.current.click()}
+              >
+                <Plus size={20} className="text-pastel-blue" />
+                <span className="text-xs text-pastel-blue">Add Image</span>
+              </motion.button>
+            )}
+          </div>
         ) : (
           <motion.button
             whileHover={{
@@ -712,116 +720,152 @@ function AdCreator() {
             </div>
             <div className="text-center">
               <span className="text-sm font-semibold text-pastel-blue block mb-1">
-                Upload Image
+                Upload Images
               </span>
               <span className="text-xs text-charcoal/50">
-                PNG, JPG or WEBP (max 10MB)
+                PNG, JPG or WEBP (max 10MB, up to 4 images)
               </span>
             </div>
           </motion.button>
         )}
+
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
           className="hidden"
           accept="image/png,image/jpeg,image/jpg,image/webp"
+          multiple
         />
       </div>
+    );
+  };
 
-      {/* Fun Prompts */}
-      <div className="mb-8">
-        <h2 className="text-lg font-bold mb-3">Scene Ideas</h2>
-        <div className="space-y-2">
-          {funPrompts.map((text, idx) => (
-            <motion.button
-              key={idx}
-              whileHover={{
-                scale: 1.02,
-                backgroundColor: "rgba(123, 223, 242, 0.15)",
-              }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleFunPromptClick(text)}
-              className="w-full text-left text-sm text-pastel-blue bg-pastel-blue/10 hover:bg-pastel-blue/20 p-3 rounded-lg font-medium transition-all"
-            >
-              {text}
-            </motion.button>
-          ))}
+  // Memoize the sidebar content to prevent re-rendering
+  const SidebarContent = useMemo(
+    () => (
+      <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
+        {/* Credit Usage */}
+        <div className="mb-8">
+          <UserCredits
+            credits={credits}
+            creditsLoading={creditsLoading}
+            subscription={subscription}
+            onRefresh={handleRefreshCredits}
+            error={creditsError}
+          />
         </div>
-      </div>
-
-      {/* Number of Images Selector */}
-      <div>
-        <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
-
-        {/* Credit Status Indicator */}
-        {!creditsLoading && credits && (
-          <div
-            className={`mb-4 p-3 rounded-lg text-sm ${
-              credits.available_credits < numImages
-                ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
-                : credits.available_credits < 5
-                ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
-                : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
-            }`}
-          >
-            <div className="flex items-center">
-              <Zap size={14} className="mr-2 flex-shrink-0" />
-              <span className="font-medium">
-                {credits.available_credits < numImages
-                  ? `Need ${
-                      numImages - credits.available_credits
-                    } more credit${
-                      numImages - credits.available_credits !== 1
-                        ? "s"
-                        : ""
-                    }`
-                  : `${credits.available_credits} credit${
-                      credits.available_credits !== 1 ? "s" : ""
-                    } available`}
-              </span>
-            </div>
-            {credits.available_credits < numImages && (
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Link
-                  to="/account"
-                  className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
-                >
-                  Get More Credits
-                </Link>
-              </motion.div>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((num) => (
-            <motion.button
-              key={num}
-              whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setNumImages(num)}
-              className={`rounded-lg py-3 font-semibold transition-all ${
-                numImages === num
-                  ? "bg-pastel-blue text-charcoal shadow-md"
-                  : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
+  
+        {/* Number of Images Selector */}
+        <div className="mb-8">
+          <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
+  
+          {/* Credit Status Indicator */}
+          {!creditsLoading && credits && (
+            <div
+              className={`mb-4 p-3 rounded-lg text-sm ${
+                credits.available_credits < numImages
+                  ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
+                  : credits.available_credits < 5
+                  ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
+                  : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
               }`}
             >
-              {num}
-            </motion.button>
-          ))}
+              <div className="flex items-center">
+                <Zap size={14} className="mr-2 flex-shrink-0" />
+                <span className="font-medium">
+                  {credits.available_credits < numImages
+                    ? `Need ${
+                        numImages - credits.available_credits
+                      } more credit${
+                        numImages - credits.available_credits !== 1 ? "s" : ""
+                      }`
+                    : `${credits.available_credits} credit${
+                        credits.available_credits !== 1 ? "s" : ""
+                      } available`}
+                </span>
+              </div>
+              {credits.available_credits < numImages && (
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Link
+                    to="/account"
+                    className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
+                  >
+                    Get More Credits
+                  </Link>
+                </motion.div>
+              )}
+            </div>
+          )}
+  
+          <div className="grid grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((num) => (
+              <motion.button
+                key={num}
+                whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setNumImages(num)}
+                className={`rounded-lg py-3 font-semibold transition-all ${
+                  numImages === num
+                    ? "bg-pastel-blue text-charcoal shadow-md"
+                    : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
+                }`}
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+  
+          {/* Credit cost explanation */}
+          <p className="text-xs text-charcoal/60 mt-3 text-center">
+            Each image costs 1 credit
+          </p>
         </div>
-
-        {/* Credit cost explanation */}
-        <p className="text-xs text-charcoal/60 mt-3 text-center">
-          Each image costs 1 credit
-        </p>
+  
+        {/* Scene Ideas section - moved to main content */}
+        <div className="mb-8">
+          <h2 className="text-lg font-bold mb-3">Image Settings</h2>
+          
+          {/* Quality selector - could be added later */}
+          <div className="p-3 rounded-lg bg-background/20 border border-border/20 text-white/70 text-sm">
+            <p className="mb-2 font-medium text-white">Image Quality</p>
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Standard</span>
+              <div className="w-8 h-4 rounded-full bg-pastel-blue/30 relative">
+                <div className="w-4 h-4 absolute left-0 top-0 rounded-full bg-pastel-blue"></div>
+              </div>
+              <span className="text-xs text-white/50">High</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Help & Tips */}
+        <div>
+          <h2 className="text-lg font-bold mb-3">Tips</h2>
+          <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
+            <p className="text-sm text-white/70">
+              <span className="text-pastel-blue font-medium block mb-1">Be specific</span>
+              Describe lighting, environment, and style for best results.
+            </p>
+            <p className="text-sm text-white/70">
+              <span className="text-pastel-blue font-medium block mb-1">Try multiple images</span>
+              Upload up to 4 products to create complex scenes.
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
-  ), [preview, file, credits, creditsLoading, numImages, funPrompts, subscription, creditsError]);
+    ),
+    [
+      credits,
+      creditsLoading,
+      numImages,
+      subscription,
+      creditsError,
+    ]
+  );
 
   return (
     <div className="min-h-screen flex bg-[#181A20] text-gray-100">
@@ -919,7 +963,6 @@ function AdCreator() {
 
             {/* Content Area with Fixed Height */}
             <div className="flex-1 p-6 overflow-hidden">
-              {/* Create Tab */}
               {activeTab === "create" && (
                 <div className="w-full max-w-5xl mx-auto">
                   {/* Loading State */}
@@ -935,40 +978,223 @@ function AdCreator() {
                       ))}
                     </div>
                   ) : (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-center py-20 bg-[#23262F] rounded-xl border border-[#23262F]/60 shadow-sm"
-                    >
+                    <div className="space-y-8">
+                      {/* Main Upload/Creation Area - Centered with improved visuals */}
                       <motion.div
-                        className="inline-flex items-center justify-center p-6 bg-pastel-blue/20 rounded-full mb-6"
-                        whileHover={{ scale: 1.05 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-center py-8 bg-[#23262F] rounded-xl border border-[#23262F]/60 shadow-sm"
                       >
-                        <ImagePlus size={36} className="text-pastel-blue" />
+                        {previews.length === 0 ? (
+                          // Empty state - show large upload button
+                          <div className="flex flex-col items-center justify-center p-10">
+                            <motion.div
+                              className="flex items-center justify-center p-6 bg-pastel-blue/20 rounded-full mb-6"
+                              whileHover={{ scale: 1.05 }}
+                            >
+                              <ImagePlus
+                                size={36}
+                                className="text-pastel-blue"
+                              />
+                            </motion.div>
+                            <h3 className="text-2xl font-semibold mb-3 text-white">
+                              Create Your Scene
+                            </h3>
+                            <p className="text-gray-300 max-w-md mx-auto mb-8">
+                              Upload your product images, choose a scene style,
+                              and let SnapSceneAI transform them.
+                            </p>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] px-8 py-4 rounded-full font-semibold shadow-md transition-all"
+                              onClick={() => fileInputRef.current.click()}
+                            >
+                              <FileUp className="h-5 w-5 mr-2 inline-block" />
+                              Upload Images
+                            </motion.button>
+                          </div>
+                        ) : (
+                          // Display uploaded images in a visually appealing grid
+                          <div className="p-6">
+                            <h3 className="text-2xl font-semibold mb-6 text-white">
+                              Your Product Images
+                            </h3>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mb-6">
+                              {previews.map((preview, index) => (
+                                <motion.div
+                                  key={`preview-${index}`}
+                                  className="relative rounded-lg overflow-hidden shadow-sm border border-[#23262F]/60 group aspect-square"
+                                  whileHover={{
+                                    scale: 1.03,
+                                    boxShadow:
+                                      "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                                  }}
+                                >
+                                  <img
+                                    src={preview}
+                                    alt={`Uploaded ${index + 1}`}
+                                    className="object-cover w-full h-full"
+                                  />
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => handleRemoveImage(index)}
+                                    className="absolute top-2 right-2 bg-[#23262F] p-1.5 rounded-full shadow-md opacity-80 hover:opacity-100 z-10"
+                                  >
+                                    <X size={14} className="text-pastel-blue" />
+                                  </motion.button>
+
+                                  {/* Filename on hover */}
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2">
+                                    <p className="text-white text-xs text-center font-medium truncate">
+                                      {files[index]?.name ||
+                                        `Image ${index + 1}`}
+                                    </p>
+                                  </div>
+                                </motion.div>
+                              ))}
+
+                              {/* Add more images button if less than 4 */}
+                              {previews.length < 4 && (
+                                <motion.button
+                                  whileHover={{
+                                    scale: 1.03,
+                                    backgroundColor: "rgba(123, 223, 242, 0.1)",
+                                  }}
+                                  whileTap={{ scale: 0.97 }}
+                                  className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-pastel-blue/20 rounded-lg hover:bg-pastel-blue/10 transition-all aspect-square"
+                                  onClick={() => fileInputRef.current.click()}
+                                >
+                                  <Plus
+                                    size={24}
+                                    className="text-pastel-blue"
+                                  />
+                                  <span className="text-xs text-pastel-blue">
+                                    Add Image
+                                  </span>
+                                </motion.button>
+                              )}
+                            </div>
+
+                            {/* Help text for multi-image uploads */}
+                            {previews.length > 1 && (
+                              <div className="mt-2 p-3 bg-pastel-blue/10 rounded-lg border border-pastel-blue/20 max-w-lg mx-auto">
+                                <p className="text-sm text-white/80">
+                                  <span className="font-medium text-pastel-blue">
+                                    Multi-image mode:
+                                  </span>{" "}
+                                  Your {previews.length} images will be combined
+                                  into a cohesive scene based on your prompt.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Scene ideas directly below the images */}
+                            <div className="mt-8 max-w-3xl mx-auto">
+                              <h4 className="text-lg font-medium mb-3 text-white">
+                                Quick Scene Ideas
+                              </h4>
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                {funPrompts.map((text, idx) => (
+                                  <motion.button
+                                    key={idx}
+                                    whileHover={{
+                                      scale: 1.03,
+                                      backgroundColor:
+                                        "rgba(123, 223, 242, 0.25)",
+                                    }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={() => handleFunPromptClick(text)}
+                                    className="text-sm text-pastel-blue bg-pastel-blue/10 hover:bg-pastel-blue/20 py-2 px-3 rounded-lg font-medium transition-all"
+                                  >
+                                    {text}
+                                  </motion.button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </motion.div>
-                      <h3 className="text-2xl font-semibold mb-3 text-white">
-                        Create Your Scene
-                      </h3>
-                      <p className="text-gray-300 max-w-md mx-auto mb-8">
-                        Upload your product image, choose a scene style, and let
-                        SnapSceneAI transform it.
-                      </p>
-                      {!preview && (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className="bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] px-8 py-4 rounded-full font-semibold shadow-md transition-all"
-                          onClick={() => fileInputRef.current.click()}
-                        >
-                          <FileUp className="h-5 w-5 mr-2 inline-block" />
-                          Upload Image
-                        </motion.button>
+
+                      {/* Most Recent Generations - Only show if there are generated images */}
+                      {generatedImages.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xl font-semibold text-white">
+                              Recently Generated
+                            </h3>
+                            <Link
+                              to="#"
+                              onClick={() => setActiveTab("gallery")}
+                              className="text-sm text-pastel-blue hover:underline"
+                            >
+                              View all in gallery
+                            </Link>
+                          </div>
+
+                          <div className="bg-[#23262F] p-4 rounded-xl border border-[#23262F]/60 shadow-sm">
+                            {/* Show the most recent 4 images */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                              {generatedImages
+                                .slice(0, 4)
+                                .map((image, index) => (
+                                  <motion.div
+                                    key={`recent-${image.id || index}`}
+                                    whileHover={{ y: -5 }}
+                                    className="relative group rounded-lg overflow-hidden bg-[#1F222A] shadow-sm border border-[#1F222A]/80"
+                                  >
+                                    <div
+                                      className="aspect-square cursor-pointer"
+                                      onClick={() => handleOpenModal(image)}
+                                    >
+                                      <img
+                                        src={image.base64Image}
+                                        alt={`Generated ${index + 1}`}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+
+                                    {/* Quick action buttons */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex justify-center space-x-2">
+                                        <button
+                                          onClick={() =>
+                                            handleDownload(
+                                              image.base64Image,
+                                              index
+                                            )
+                                          }
+                                          className="p-1.5 bg-white/20 hover:bg-white/30 rounded text-white"
+                                          title="Download"
+                                        >
+                                          <Download size={14} />
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleCopyImage(
+                                              image.base64Image,
+                                              index
+                                            )
+                                          }
+                                          className="p-1.5 bg-white/20 hover:bg-white/30 rounded text-white"
+                                          title="Copy"
+                                        >
+                                          <Copy size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
                       )}
-                    </motion.div>
+                    </div>
                   )}
                 </div>
               )}
-
               {/* Gallery Tab */}
               {activeTab === "gallery" && (
                 <div className="w-full max-w-6xl mx-auto flex flex-col h-full">
@@ -1062,8 +1288,8 @@ function AdCreator() {
                         No images yet
                       </h3>
                       <p className="text-gray-300 mb-6 max-w-md mx-auto">
-                        Start by generating your first image. Upload a product
-                        photo and describe the scene you want to create.
+                        Start by generating your first image. Upload product
+                        photos and describe the scene you want to create.
                       </p>
                       <motion.button
                         whileHover={{ scale: 1.03 }}
@@ -1096,7 +1322,7 @@ function AdCreator() {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows="2"
-                placeholder="Describe your scene... (e.g. 'Product on a beach at sunset')"
+                placeholder="Describe your scene... (e.g. 'Products in a gift basket with a white background')"
                 className="w-full p-4 bg-background border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:border-transparent shadow-sm hover:shadow transition-all text-foreground"
               />
               <div className="absolute right-3 bottom-3 text-xs text-charcoal/40">
@@ -1107,9 +1333,9 @@ function AdCreator() {
               whileHover={{ scale: !prompt.trim() || loading ? 1 : 1.03 }}
               whileTap={{ scale: !prompt.trim() || loading ? 1 : 0.97 }}
               type="submit"
-              disabled={!prompt.trim() || loading}
+              disabled={!prompt.trim() || loading || previews.length === 0}
               className={`px-8 py-4 rounded-xl font-bold shadow-md transition-all ${
-                !prompt.trim() || loading
+                !prompt.trim() || loading || previews.length === 0
                   ? "bg-pastel-blue/30 text-pastel-blue/80 cursor-not-allowed"
                   : "bg-pastel-blue hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 text-charcoal dark:text-[#181A20] hover:text-[#181A20] dark:hover:text-[#181A20]"
               }`}
