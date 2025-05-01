@@ -21,7 +21,7 @@ const ImageGallery = ({ images, onDownload }) => {
       // Fallback for browsers that don't support clipboard API
       const link = document.createElement('a');
       link.href = imageBase64;
-      link.download = `ad-wizard-${index}.png`;
+      link.download = `postoraai-${index}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

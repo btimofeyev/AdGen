@@ -33,7 +33,7 @@ function Navbar() {
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#23262F]/80 backdrop-blur-md border-b border-light-gray px-6 py-4 flex justify-between items-center">
       <Link to="/" className="flex items-center cursor-pointer">
         <Sparkles className="h-6 w-6 text-pastel-blue mr-2" />
-        <span className="text-2xl font-bold">SnapSceneAI</span>
+        <span className="text-2xl font-bold">PostoraAI</span>
       </Link>
 
       <div className="flex gap-4 items-center">

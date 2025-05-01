@@ -977,7 +977,7 @@ const SidebarContent = useMemo(
         <header className="bg-[#23262F] px-6 py-4 shadow flex items-center justify-between border-b border-[#23262F]/60">
           <div className="flex items-center">
             <h1 className="text-2xl font-extrabold text-white">
-              <span className="text-pastel-blue">SnapSceneAI</span> Studio
+              <span className="text-pastel-blue">PostoraAI</span> Studio
             </h1>
 
             {/* Credits Quick View */}
@@ -1089,7 +1089,7 @@ const SidebarContent = useMemo(
                             </h3>
                             <p className="text-gray-300 max-w-md mx-auto mb-8">
                               Upload your product images, choose a scene style,
-                              and let SnapSceneAI transform them.
+                              and let PostoraAI transform them.
                             </p>
                             <motion.button
                               whileHover={{ scale: 1.05 }}

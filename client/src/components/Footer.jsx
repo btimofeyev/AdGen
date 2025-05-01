@@ -10,7 +10,7 @@ function Footer() {
         <div className="mb-8 md:mb-0">
           <h2 className="text-2xl font-bold flex items-center">
             <Sparkles className="h-6 w-6 text-pastel-blue mr-2" />
-            Ad Wizard
+            PostoraAI
           </h2>
           <p className="text-charcoal/60 dark:text-gray-400 mt-2">Transform images into engaging ads</p>
         </div>
@@ -23,7 +23,7 @@ function Footer() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-light-gray/40 dark:border-[#23262F]/60 text-center text-charcoal/50 dark:text-gray-400 text-sm">
-        © 2025 Ad Wizard. All rights reserved.
+        © 2025 PostoraAI. All rights reserved.
       </div>
     </footer>
   );

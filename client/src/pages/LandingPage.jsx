@@ -70,7 +70,7 @@ function LandingPage() {
        <section className="py-20 bg-background">
         <div className="max-w-6xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold mb-16 text-charcoal dark:text-white relative">
-            How SnapSceneAI Works
+            How PostoraAI Works
             <div className="absolute w-24 h-1 bg-pastel-blue bottom-0 left-1/2 transform -translate-x-1/2 -mb-4"></div>
           </h2>
 
@@ -106,7 +106,7 @@ function LandingPage() {
        <section className="py-20 bg-background">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-charcoal dark:text-white">Why Choose SnapSceneAI?</h2>
+            <h2 className="text-4xl font-bold mb-4 text-charcoal dark:text-white">Why Choose PostoraAI?</h2>
             <p className="text-charcoal/70 dark:text-gray-300 max-w-2xl mx-auto">
               Our platform makes professional ad creation accessible to everyone, regardless of design skills.
             </p>
@@ -190,7 +190,7 @@ function LandingPage() {
           <div className="mb-8 md:mb-0">
             <h2 className="text-2xl font-bold flex items-center">
               <Sparkles className="h-6 w-6 text-pastel-blue mr-2" />
-              SnapSceneAI
+              PostoraAI
             </h2>
             <p className="text-charcoal/60 dark:text-gray-400 mt-2">Transform images into engaging visuals</p>
           </div>
@@ -204,7 +204,7 @@ function LandingPage() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-light-gray/40 dark:border-border text-center text-charcoal/50 dark:text-gray-500 text-sm">
-          © 2025 SnapSceneAI. All rights reserved.
+          © 2025 PostoraAI. All rights reserved.
         </div>
       </footer>
     </div>

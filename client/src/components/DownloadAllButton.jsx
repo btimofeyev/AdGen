@@ -38,7 +38,7 @@ const DownloadAllButton = ({ images }) => {
       // Generate readme explaining expiration
       const readme = 
 `# Generated Images
-This archive contains images generated with Ad Wizard.
+This archive contains images generated with PostoraAI.
 
 Important: These images will expire 7 days after their creation date.
 Please save them to your own storage if you wish to keep them longer.

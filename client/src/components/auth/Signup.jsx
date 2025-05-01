@@ -50,7 +50,7 @@ const Signup = ({ isOpen, onClose }) => {
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Create Your Account</h2>
-          <p className="text-charcoal/60 dark:text-gray-300">Join SnapSceneAI and start creating</p>
+          <p className="text-charcoal/60 dark:text-gray-300">Join PostoraAI and start creating</p>
         </div>
         
         {success ? (
