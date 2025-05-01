@@ -8,20 +8,22 @@
         "@supabase/auth-ui-react": "^0.4.7",
         "@supabase/auth-ui-shared": "^0.1.8",
         "@supabase/supabase-js": "^2.49.4",
-        "@tailwindcss/postcss": "^4.1.4",
         "@testing-library/jest-dom": "^5.17.0",
         "@testing-library/react": "^13.4.0",
         "@testing-library/user-event": "^13.5.0",
+        "autoprefixer": "^10.4.21",
         "clsx": "^2.0.0",
         "file-saver": "^2.0.5",
         "framer-motion": "^10.16.4",
         "jszip": "^3.10.1",
         "lucide-react": "^0.290.0",
+        "postcss": "^8.5.3",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-router-dom": "^7.5.2",
-        "react-scripts": "5.0.1",
+        "react-scripts": "^5.0.1",
         "tailwind-merge": "^1.14.0",
+        "tailwindcss": "^3.4.3",
         "web-vitals": "^2.1.4"
     },
     "scripts": {
@@ -49,11 +51,7 @@
         ]
     },
     "devDependencies": {
-        "@tailwindcss/postcss7-compat": "^2.2.17",
-        "autoprefixer": "^9.8.8",
-        "postcss": "^7.0.39",
-        "postcss-flexbugs-fixes": "^4.2.1",
-        "postcss-preset-env": "^6.7.0",
-        "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.17"
+        "postcss-flexbugs-fixes": "^5.0.2",
+        "postcss-preset-env": "^10.1.6"
     }
 }

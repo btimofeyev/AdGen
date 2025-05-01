@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;          /* Soft White #F9FAFB */
-    --foreground: 220 15% 19%;          /* Deep Charcoal #2A2E35 */
+    --background: 210 20% 98%;         
+    --foreground: 220 15% 19%;         
 
-    --primary: 187 83% 71%;             /* Pastel Sky Blue #7BDFF2 */
-    --primary-foreground: 220 15% 19%;  /* Deep Charcoal for contrast */
+    --primary: 187 83% 71%;            
+    --primary-foreground: 220 15% 19%;  
 
-    --secondary: 276 81% 82%;           /* Soft Lavender #D5A9F6 */
+    --secondary: 276 81% 82%;          
     --secondary-foreground: 220 15% 19%;
 
-    --accent: 344 100% 76%;             /* Pastel Pink #FFA5C2 */
+    --accent: 344 100% 76%;           
     --accent-foreground: 220 15% 19%;
 
-    --muted: 220 15% 95%;               /* Light Muted */
+    --muted: 220 15% 95%;            
     --muted-foreground: 220 14% 45%;
 
-    --border: 216 14% 84%;              /* Light Gray #D1D5DB */
+    --border: 216 14% 84%;            
     --input: 216 14% 84%;
-    --ring: 187 83% 71%;                /* Match Pastel Sky Blue */
+    --ring: 187 83% 71%;               
   }
 
   .dark {

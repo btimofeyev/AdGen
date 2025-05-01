@@ -45,7 +45,7 @@ function Navbar() {
                 <User size={16} className="text-pastel-blue" />
               </div>
               <div className="hidden md:flex flex-col">
-                <span className="text-sm font-medium text-charcoal/70">
+                <span className="text-sm font-medium text-white">
                   {user.user_metadata?.full_name || user.email.split("@")[0]}
                 </span>
                 <Link
@@ -66,7 +66,7 @@ function Navbar() {
             
             <Link
               to="/pricing"
-              className="hidden sm:inline-block text-charcoal/80 hover:text-pastel-blue transition text-sm sm:text-base px-2"
+              className="hidden sm:inline-block text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
             >
               Pricing
             </Link>
@@ -89,14 +89,14 @@ function Navbar() {
             {/* User is not logged in: Pricing, Login, Get Started */}
             <Link
               to="/pricing"
-              className="text-charcoal/80 hover:text-pastel-blue transition text-sm sm:text-base px-2"
+              className="text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
             >
               Pricing
             </Link>
             
             <Link
               to="/login"
-              className="text-charcoal/70 hover:text-charcoal/90 font-medium rounded-full px-4 py-2 transition text-sm sm:text-base"
+              className="text-white hover:text-pastel-blue font-medium rounded-full px-4 py-2 transition text-sm sm:text-base"
             >
               Log In
             </Link>
