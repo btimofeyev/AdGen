@@ -59,9 +59,15 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
       if (redirectError) {
         throw redirectError;
       }
-    } catch (err) {
-      console.error('Checkout error:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error("Payment Error Details:", {
+        type: error.type,
+        code: error.code,
+        param: error.param,
+        message: error.message,
+        decline_code: error.decline_code,
+        doc_url: error.doc_url
+      });
       if (onError) onError(err);
     } finally {
       setLoading(false);
