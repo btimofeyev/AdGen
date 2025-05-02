@@ -45,9 +45,9 @@ function LandingPage() {
         </motion.div>
           <motion.div style={{ y: heroImageY }} className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6">
           {['before', 'after'].map((type, idx) => (
-            <div key={idx} className="bg-background p-4 rounded-xl shadow-xl border border-light-gray/40 dark:border-border">
+            <div key={idx} className="bg-background p-4 rounded-xl shadow-xl dark:border-border">
               <p className="text-center text-sm mb-2 text-charcoal/60 dark:text-gray-400 font-semibold">{type === 'before' ? 'Before' : 'After'}</p>
-              <div className="relative w-full h-64 overflow-hidden rounded-lg bg-background">
+              <div className="relative w-full h-96 overflow-hidden rounded-lg bg-background">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={carouselPairs[currentIndex][type]}

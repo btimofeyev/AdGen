@@ -1,6 +1,6 @@
 // Updated AdCreator.jsx with multi-image upload support
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FileUp,
   X,
@@ -15,6 +15,9 @@ import {
   Plus,
   Trash2,
   Check,
+  Menu,
+  SlidersHorizontal,
+  Image,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -68,6 +71,12 @@ function AdCreator() {
   const [selectedImages, setSelectedImages] = useState({});
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Add local state for popovers
+  const [showStylePopover, setShowStylePopover] = useState(false);
+  const [showNumPopover, setShowNumPopover] = useState(false);
 
   // Focus on prompt input on component mount
   useEffect(() => {
@@ -831,7 +840,7 @@ function AdCreator() {
   const SidebarContent = useMemo(
     () => (
       <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
-        {/* Credit Usage */}
+        {/* Credit Usage - always visible */}
         <div className="mb-8">
           <UserCredits
             credits={credits}
@@ -841,179 +850,181 @@ function AdCreator() {
             error={creditsError}
           />
         </div>
+        {/* Only show config/tips on desktop */}
+        <div className="hidden md:block">
+          {/* Number of Images Selector */}
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
 
-        {/* Number of Images Selector */}
-        <div className="mb-8">
-          <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
-
-          {/* Credit Status Indicator */}
-          {!creditsLoading && credits && (
-            <div
-              className={`mb-4 p-3 rounded-lg text-sm ${
-                credits.available_credits < numImages
-                  ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
-                  : credits.available_credits < 5
-                  ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
-                  : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
-              }`}
-            >
-              <div className="flex items-center">
-                <Zap size={14} className="mr-2 flex-shrink-0" />
-                <span className="font-medium">
-                  {credits.available_credits < numImages
-                    ? `Need ${
-                        numImages - credits.available_credits
-                      } more credit${
-                        numImages - credits.available_credits !== 1 ? "s" : ""
-                      }`
-                    : `${credits.available_credits} credit${
-                        credits.available_credits !== 1 ? "s" : ""
-                      } available`}
-                </span>
-              </div>
-              {credits.available_credits < numImages && (
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link
-                    to="/account"
-                    className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
-                  >
-                    Get More Credits
-                  </Link>
-                </motion.div>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map((num) => (
-              <motion.button
-                key={num}
-                whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setNumImages(num)}
-                className={`rounded-lg py-3 font-semibold transition-all ${
-                  numImages === num
-                    ? "bg-pastel-blue text-charcoal shadow-md"
-                    : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
+            {/* Credit Status Indicator */}
+            {!creditsLoading && credits && (
+              <div
+                className={`mb-4 p-3 rounded-lg text-sm ${
+                  credits.available_credits < numImages
+                    ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
+                    : credits.available_credits < 5
+                    ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
+                    : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
                 }`}
               >
-                {num}
+                <div className="flex items-center">
+                  <Zap size={14} className="mr-2 flex-shrink-0" />
+                  <span className="font-medium">
+                    {credits.available_credits < numImages
+                      ? `Need ${
+                          numImages - credits.available_credits
+                        } more credit${
+                          numImages - credits.available_credits !== 1 ? "s" : ""
+                        }`
+                      : `${credits.available_credits} credit${
+                          credits.available_credits !== 1 ? "s" : ""
+                        } available`}
+                  </span>
+                </div>
+                {credits.available_credits < numImages && (
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Link
+                      to="/account"
+                      className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
+                    >
+                      Get More Credits
+                    </Link>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map((num) => (
+                <motion.button
+                  key={num}
+                  whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setNumImages(num)}
+                  className={`rounded-lg py-3 font-semibold transition-all ${
+                    numImages === num
+                      ? "bg-pastel-blue text-charcoal shadow-md"
+                      : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
+                  }`}
+                >
+                  {num}
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Credit cost explanation */}
+            <p className="text-xs text-charcoal/60 mt-3 text-center">
+              Each image costs 1 credit
+            </p>
+          </div>
+
+          {/* Image Size Selector */}
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-3">Image Size</h2>
+            <div className="space-y-2">
+              {/* Square size option */}
+              <motion.button
+                whileHover={{ scale: imageSize !== "1024x1024" ? 1.02 : 1 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setImageSize("1024x1024")}
+                className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+                  imageSize === "1024x1024"
+                    ? "bg-pastel-blue/20 border-pastel-blue text-white"
+                    : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
+                }`}
+              >
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                    <div className="w-8 h-8 border-2 border-current rounded"></div>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Square</div>
+                    <div className="text-xs opacity-70">1024 × 1024</div>
+                  </div>
+                </div>
+                {imageSize === "1024x1024" && (
+                  <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                    <Check size={12} className="text-[#181A20]" />
+                  </div>
+                )}
               </motion.button>
-            ))}
+
+              {/* Landscape size option */}
+              <motion.button
+                whileHover={{ scale: imageSize !== "1536x1024" ? 1.02 : 1 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setImageSize("1536x1024")}
+                className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+                  imageSize === "1536x1024"
+                    ? "bg-pastel-blue/20 border-pastel-blue text-white"
+                    : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
+                }`}
+              >
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                    <div className="w-10 h-7 border-2 border-current rounded"></div>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Landscape</div>
+                    <div className="text-xs opacity-70">1536 × 1024</div>
+                  </div>
+                </div>
+                {imageSize === "1536x1024" && (
+                  <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                    <Check size={12} className="text-[#181A20]" />
+                  </div>
+                )}
+              </motion.button>
+
+              {/* Portrait size option */}
+              <motion.button
+                whileHover={{ scale: imageSize !== "1024x1536" ? 1.02 : 1 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setImageSize("1024x1536")}
+                className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+                  imageSize === "1024x1536"
+                    ? "bg-pastel-blue/20 border-pastel-blue text-white"
+                    : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
+                }`}
+              >
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                    <div className="w-7 h-10 border-2 border-current rounded"></div>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Portrait</div>
+                    <div className="text-xs opacity-70">1024 × 1536</div>
+                  </div>
+                </div>
+                {imageSize === "1024x1536" && (
+                  <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                    <Check size={12} className="text-[#181A20]" />
+                  </div>
+                )}
+              </motion.button>
+            </div>
           </div>
 
-          {/* Credit cost explanation */}
-          <p className="text-xs text-charcoal/60 mt-3 text-center">
-            Each image costs 1 credit
-          </p>
-        </div>
-
-        {/* Image Size Selector - NEW SECTION */}
-        <div className="mb-8">
-          <h2 className="text-lg font-bold mb-3">Image Size</h2>
-          <div className="space-y-2">
-            {/* Square size option */}
-            <motion.button
-              whileHover={{ scale: imageSize !== "1024x1024" ? 1.02 : 1 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setImageSize("1024x1024")}
-              className={`w-full p-3 rounded-lg flex items-center justify-between border ${
-                imageSize === "1024x1024"
-                  ? "bg-pastel-blue/20 border-pastel-blue text-white"
-                  : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
-              }`}
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
-                  <div className="w-8 h-8 border-2 border-current rounded"></div>
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">Square</div>
-                  <div className="text-xs opacity-70">1024 × 1024</div>
-                </div>
-              </div>
-              {imageSize === "1024x1024" && (
-                <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
-                  <Check size={12} className="text-[#181A20]" />
-                </div>
-              )}
-            </motion.button>
-
-            {/* Landscape size option */}
-            <motion.button
-              whileHover={{ scale: imageSize !== "1536x1024" ? 1.02 : 1 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setImageSize("1536x1024")}
-              className={`w-full p-3 rounded-lg flex items-center justify-between border ${
-                imageSize === "1536x1024"
-                  ? "bg-pastel-blue/20 border-pastel-blue text-white"
-                  : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
-              }`}
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
-                  <div className="w-10 h-7 border-2 border-current rounded"></div>
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">Landscape</div>
-                  <div className="text-xs opacity-70">1536 × 1024</div>
-                </div>
-              </div>
-              {imageSize === "1536x1024" && (
-                <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
-                  <Check size={12} className="text-[#181A20]" />
-                </div>
-              )}
-            </motion.button>
-
-            {/* Portrait size option */}
-            <motion.button
-              whileHover={{ scale: imageSize !== "1024x1536" ? 1.02 : 1 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setImageSize("1024x1536")}
-              className={`w-full p-3 rounded-lg flex items-center justify-between border ${
-                imageSize === "1024x1536"
-                  ? "bg-pastel-blue/20 border-pastel-blue text-white"
-                  : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
-              }`}
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
-                  <div className="w-7 h-10 border-2 border-current rounded"></div>
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">Portrait</div>
-                  <div className="text-xs opacity-70">1024 × 1536</div>
-                </div>
-              </div>
-              {imageSize === "1024x1536" && (
-                <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
-                  <Check size={12} className="text-[#181A20]" />
-                </div>
-              )}
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Help & Tips */}
-        <div>
-          <h2 className="text-lg font-bold mb-3">Tips</h2>
-          <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
-            <p className="text-sm text-white/70">
-              <span className="text-pastel-blue font-medium block mb-1">
-                Be specific
-              </span>
-              Describe lighting, environment, and style for best results.
-            </p>
-            <p className="text-sm text-white/70">
-              <span className="text-pastel-blue font-medium block mb-1">
-                Try multiple images
-              </span>
-              Upload up to 4 products to create complex scenes.
-            </p>
+          {/* Help & Tips */}
+          <div>
+            <h2 className="text-lg font-bold mb-3">Tips</h2>
+            <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
+              <p className="text-sm text-white/70">
+                <span className="text-pastel-blue font-medium block mb-1">
+                  Be specific
+                </span>
+                Describe lighting, environment, and style for best results.
+              </p>
+              <p className="text-sm text-white/70">
+                <span className="text-pastel-blue font-medium block mb-1">
+                  Try multiple images
+                </span>
+                Upload up to 4 products to create complex scenes.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1091,7 +1102,7 @@ function AdCreator() {
         multiple
       />
       {/* Sidebar */}
-      <div className="w-16 bg-[#23262F] shadow flex flex-col items-center py-6 space-y-6 border-r border-[#23262F]/60">
+      <div className="hidden sm:flex w-16 bg-[#23262F] shadow flex-col items-center py-6 space-y-6 border-r border-[#23262F]/60">
         <div className="flex items-center justify-center rounded-full bg-pastel-blue/20 p-2">
           <ImagePlus size={20} className="text-pastel-blue" />
         </div>
@@ -1105,20 +1116,98 @@ function AdCreator() {
         </div>
       </div>
 
+      {/* Mobile Sidebar Drawer */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div
+            initial={{ x: "-100%", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "-100%", opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-[110] flex sm:hidden"
+          >
+            {/* Overlay */}
+            <div
+              className="fixed inset-0 bg-black opacity-80 z-[110]"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            {/* Sidebar Panel */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="relative w-[90vw] max-w-[22rem] h-full bg-[#23262F] border-r border-[#23262F]/60 shadow-2xl z-[120] p-0 overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                className="sticky top-0 right-0 z-[130] p-2 m-2 rounded-full bg-[#23262F] hover:bg-pastel-blue/10 focus:outline-none"
+                onClick={() => setMobileSidebarOpen(false)}
+                aria-label="Close menu"
+              >
+                <X className="h-6 w-6 text-pastel-blue" />
+              </button>
+              {/* SidebarContent in Drawer */}
+              <div className="pt-4 pb-8 flex flex-col gap-6">
+                {/* Credits Info */}
+                <div>
+                  <UserCredits
+                    credits={credits}
+                    creditsLoading={creditsLoading}
+                    subscription={subscription}
+                    onRefresh={handleRefreshCredits}
+                    error={creditsError}
+                  />
+                </div>
+                {/* Nav Buttons */}
+                <div className="flex flex-col gap-3 mt-4">
+                  <button
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg bg-background/10 text-white font-semibold text-base hover:bg-pastel-blue/10 transition"
+                    onClick={() => { setMobileSidebarOpen(false); navigate("/"); }}
+                  >
+                    <Home size={18} className="text-pastel-blue" /> Home
+                  </button>
+                  <button
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg bg-background/10 text-white font-semibold text-base hover:bg-pastel-blue/10 transition"
+                    onClick={() => { setMobileSidebarOpen(false); navigate("/account"); }}
+                  >
+                    <User size={18} className="text-pastel-blue" /> Account
+                  </button>
+                  <button
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg bg-background/10 text-white font-semibold text-base hover:bg-pastel-blue/10 transition"
+                    onClick={() => { setMobileSidebarOpen(false); handleLogout(); }}
+                  >
+                    <LogOut size={18} className="text-pastel-blue" /> Log Out
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#181A20]">
+      <div className="flex-1 flex flex-col bg-[#181A20] min-h-screen">
         {/* Header */}
-        <header className="bg-[#23262F] px-6 py-4 shadow flex items-center justify-between border-b border-[#23262F]/60">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-extrabold text-white">
+        <header className="bg-[#23262F] px-2 sm:px-6 py-2 sm:py-4 shadow flex items-center justify-between border-b border-[#23262F]/60 min-h-[48px]">
+          {/* Hamburger for mobile */}
+          <button
+            className="sm:hidden p-2 rounded-lg hover:bg-pastel-blue/10 focus:outline-none focus:ring-2 focus:ring-pastel-blue mr-2 flex-shrink-0"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open sidebar menu"
+          >
+            <Menu className="h-7 w-7 text-pastel-blue" />
+          </button>
+          <div className="flex items-center min-w-0">
+            <h1 className="text-lg sm:text-2xl font-extrabold text-white truncate">
               <span className="text-pastel-blue">PostoraAI</span> Studio
             </h1>
 
-            {/* Credits Quick View */}
+            {/* Credits Quick View (hide on mobile) */}
             {!creditsLoading && credits && (
               <Link
                 to="/account"
-                className="ml-6 flex items-center text-sm bg-pastel-blue/10 hover:bg-pastel-blue/20 px-3 py-1 rounded-full transition text-pastel-blue border border-pastel-blue/30"
+                className="ml-6 hidden sm:flex items-center text-sm bg-pastel-blue/10 hover:bg-pastel-blue/20 px-3 py-1 rounded-full transition text-pastel-blue border border-pastel-blue/30"
               >
                 <Zap size={14} className="text-pastel-blue mr-1" />
                 <span className="font-medium">{credits.available_credits}</span>
@@ -1157,9 +1246,9 @@ function AdCreator() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-y-auto">
           {/* Center Area */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-y-auto">
             {/* Error Message */}
             {error && (
               <motion.div
@@ -1598,25 +1687,89 @@ function AdCreator() {
           </div>
 
           {/* Right Sidebar */}
-          {SidebarContent}
+          <div className="hidden md:block">
+            {SidebarContent}
+          </div>
         </div>
 
         {/* Prompt Input - Fixed at Bottom */}
         <form
           onSubmit={handleSubmit}
-          className="bg-background border-t border-border p-6 sticky bottom-0 z-10 shadow-md"
+          className="bg-background border-t border-border p-3 sm:p-6 sticky bottom-0 z-10 shadow-md"
         >
-          <div className="max-w-3xl mx-auto flex items-stretch gap-4">
+          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-stretch gap-2 sm:gap-4">
             <div className="flex-1 relative">
+              {/* Action buttons row (mobile only, now above input) */}
+              <div className="flex sm:hidden items-center gap-4 mb-2 px-1 relative z-20">
+                {/* Image style popover */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    className={`p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition ${showStylePopover ? 'ring-2 ring-pastel-blue' : ''}`}
+                    title="Change image style"
+                    onClick={() => { setShowStylePopover(v => !v); setShowNumPopover(false); }}
+                  >
+                    <Image className="h-5 w-5" />
+                  </button>
+                  {showStylePopover && (
+                    <div className="absolute left-0 bottom-full mb-2 w-40 bg-background border border-border rounded-lg shadow-lg z-30">
+                      {[{label: 'Square (1024×1024)', value: '1024x1024'}, {label: 'Landscape (1536×1024)', value: '1536x1024'}, {label: 'Portrait (1024×1536)', value: '1024x1536'}].map(opt => (
+                        <button
+                          key={opt.value}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-pastel-blue/10 ${imageSize === opt.value ? 'font-bold text-pastel-blue' : ''}`}
+                          onClick={() => { setImageSize(opt.value); setShowStylePopover(false); }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Number of images popover */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    className={`p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition text-sm font-bold ${showNumPopover ? 'ring-2 ring-pastel-blue' : ''}`}
+                    title="Change number of images"
+                    onClick={() => { setShowNumPopover(v => !v); setShowStylePopover(false); }}
+                  >
+                    <SlidersHorizontal className="h-5 w-5 inline-block mr-1" />
+                    {numImages}x
+                  </button>
+                  {showNumPopover && (
+                    <div className="absolute left-0 bottom-full mb-2 w-28 bg-background border border-border rounded-lg shadow-lg z-30">
+                      {[1,2,3,4].map(n => (
+                        <button
+                          key={n}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-pastel-blue/10 ${numImages === n ? 'font-bold text-pastel-blue' : ''}`}
+                          onClick={() => { setNumImages(n); setShowNumPopover(false); }}
+                        >
+                          {n} image{n > 1 ? 's' : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Upload button */}
+                <button
+                  type="button"
+                  className="p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition"
+                  title="Upload images"
+                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                >
+                  <FileUp className="h-5 w-5" />
+                </button>
+              </div>
               <textarea
                 ref={promptInputRef}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows="2"
                 placeholder="Describe your scene... (e.g. 'Products in a gift basket with a white background')"
-                className="w-full p-4 bg-background border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:border-transparent shadow-sm hover:shadow transition-all text-foreground"
+                className="w-full p-2 sm:p-4 bg-background border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:border-transparent shadow-sm hover:shadow transition-all text-foreground text-sm sm:text-base"
+                onBlur={() => { setShowStylePopover(false); setShowNumPopover(false); }}
               />
-              <div className="absolute right-3 bottom-3 text-xs text-charcoal/40">
+              <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 text-xs text-charcoal/40">
                 {prompt.length} / 300
               </div>
             </div>
@@ -1625,7 +1778,7 @@ function AdCreator() {
               whileTap={{ scale: !prompt.trim() || loading ? 1 : 0.97 }}
               type="submit"
               disabled={!prompt.trim() || loading || previews.length === 0}
-              className={`px-8 py-4 rounded-xl font-bold shadow-md transition-all ${
+              className={`w-full sm:w-auto px-4 py-2 sm:px-8 sm:py-4 rounded-xl font-bold shadow-md transition-all text-sm sm:text-base ${
                 !prompt.trim() || loading || previews.length === 0
                   ? "bg-pastel-blue/30 text-pastel-blue/80 cursor-not-allowed"
                   : "bg-pastel-blue hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 text-charcoal dark:text-[#181A20] hover:text-[#181A20] dark:hover:text-[#181A20]"
@@ -1661,6 +1814,9 @@ function AdCreator() {
             </motion.button>
           </div>
         </form>
+
+        {/* Mobile Config Section: Only visible on mobile (now hidden) */}
+        <div className="hidden md:block"></div>
       </div>
 
       {/* Modal */}

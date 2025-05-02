@@ -64,17 +64,25 @@ exports.createCheckoutSession = async (req, res) => {
  */
 exports.webhookHandler = async (req, res) => {
   const sig = req.headers["stripe-signature"];
-  console.log("⚡️ Stripe webhook hit!", { sig, rawBodyLength: req.body.length });
+  console.log("⚡️ Stripe webhook handler start:", { 
+    sig: sig ? sig.substring(0, 30) + '...' : 'MISSING',
+    bodyType: typeof req.body,
+    bodyLength: req.body ? (req.body.length || JSON.stringify(req.body).length) : 'No Body',
+    rawBodyAvailable: !!req.rawBody
+  });
 
   if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
     console.error("⚠️ Missing webhook signature or secret");
     return res.status(400).send("Missing webhook signature or secret");
   }
 
+  // Try using rawBody if available
+  const bodyToUse = req.rawBody || req.body;
+
   let event;
   try {
     event = stripe.webhooks.constructEvent(
-      req.body,
+      bodyToUse,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
