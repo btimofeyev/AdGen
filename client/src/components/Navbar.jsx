@@ -1,7 +1,7 @@
 // client/src/components/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Sparkles, LogOut, User, Menu, X } from "lucide-react";
+import { Sparkles, LogOut, User, Menu, X, Plus } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -127,13 +127,31 @@ function Navbar() {
       </div>
 
       {/* Hamburger for mobile */}
-      <button
-        className="md:hidden p-2 rounded-lg hover:bg-pastel-blue/10 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
-        onClick={() => setMobileMenuOpen(true)}
-        aria-label="Open menu"
-      >
-        <Menu className="h-7 w-7 text-pastel-blue" />
-      </button>
+      <div className="flex items-center gap-2 md:hidden">
+        <button
+          className="p-2 rounded-lg hover:bg-pastel-blue/10 focus:outline-none focus:ring-2 focus:ring-pastel-blue"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu className="h-7 w-7 text-pastel-blue" />
+        </button>
+        {user ? (
+          <Link
+            to="/create"
+            className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal rounded-full p-3 shadow-lg transition flex items-center justify-center ml-1"
+            aria-label="Create"
+          >
+            <Plus className="h-6 w-6" />
+          </Link>
+        ) : (
+          <Link
+            to="/signup"
+            className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-full px-5 py-3 shadow-xl transition text-base ml-1 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
+          >
+            Get Started
+          </Link>
+        )}
+      </div>
 
       {/* Slide-over Mobile Menu */}
       <AnimatePresence>
@@ -192,10 +210,11 @@ function Navbar() {
                     </div>
                     <Link
                       to="/create"
-                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 py-3 shadow-lg transition text-base mb-2"
+                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 py-3 shadow-lg transition text-base mb-2 flex items-center justify-center"
                       onClick={() => setMobileMenuOpen(false)}
+                      aria-label="Create"
                     >
-                      Create
+                      <Plus className="h-6 w-6" />
                     </Link>
                     <Link
                       to="/pricing"
@@ -238,7 +257,7 @@ function Navbar() {
                     </Link>
                     <Link
                       to="/signup"
-                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 py-3 shadow-lg transition text-base"
+                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-full px-6 py-4 shadow-xl transition text-lg mb-2 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Get Started
