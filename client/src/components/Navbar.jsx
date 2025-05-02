@@ -54,36 +54,12 @@ function Navbar() {
       <div className="hidden md:flex gap-4 items-center">
         {user ? (
           <>
-            {/* User is logged in: Profile, Create, Pricing, Log Out */}
-            <div className="flex items-center mr-2">
-              <div className="w-8 h-8 rounded-full bg-pastel-blue/20 flex items-center justify-center mr-2">
-                <User size={16} className="text-pastel-blue" />
-              </div>
-              <div className="hidden md:flex flex-col">
-                <span className="text-sm font-medium text-white">
-                  {user.user_metadata?.full_name || user.email.split("@")[0]}
-                </span>
-                <Link
-                  to="/account"
-                  className="text-xs text-pastel-blue hover:underline"
-                >
-                  Manage Account
-                </Link>
-              </div>
-            </div>
-            
+            {/* User is logged in: Just show Create button and optional logout */}
             <Link
               to="/create"
               className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-lg transition text-sm sm:text-base"
             >
               Create
-            </Link>
-            
-            <Link
-              to="/pricing"
-              className="hidden sm:inline-block text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
-            >
-              Pricing
             </Link>
             
             <button
@@ -101,7 +77,7 @@ function Navbar() {
           </>
         ) : (
           <>
-            {/* User is not logged in: Pricing, Login, Get Started */}
+            {/* User is not logged in: Just Pricing and Login */}
             <Link
               to="/pricing"
               className="text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
@@ -111,16 +87,9 @@ function Navbar() {
             
             <Link
               to="/login"
-              className="text-white hover:text-pastel-blue font-medium rounded-full px-4 py-2 transition text-sm sm:text-base"
-            >
-              Log In
-            </Link>
-            
-            <Link
-              to="/signup"
               className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-lg transition text-sm sm:text-base"
             >
-              Get Started
+              Log In
             </Link>
           </>
         )}
@@ -145,10 +114,10 @@ function Navbar() {
           </Link>
         ) : (
           <Link
-            to="/signup"
+            to="/login"
             className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-full px-5 py-3 shadow-xl transition text-base ml-1 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
           >
-            Get Started
+            Log In
           </Link>
         )}
       </div>
@@ -191,30 +160,15 @@ function Navbar() {
               <nav className="flex flex-col gap-4 mt-8">
                 {user ? (
                   <>
-                    <div className="flex items-center mb-2">
-                      <div className="w-8 h-8 rounded-full bg-pastel-blue/20 flex items-center justify-center mr-2">
-                        <User size={16} className="text-pastel-blue" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-charcoal dark:text-white">
-                          {user.user_metadata?.full_name || user.email.split("@")[0]}
-                        </span>
-                        <Link
-                          to="/account"
-                          className="text-xs text-pastel-blue hover:underline"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          Manage Account
-                        </Link>
-                      </div>
-                    </div>
+                    {/* User is logged in - Show Create button */}
                     <Link
                       to="/create"
                       className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 py-3 shadow-lg transition text-base mb-2 flex items-center justify-center"
                       onClick={() => setMobileMenuOpen(false)}
                       aria-label="Create"
                     >
-                      <Plus className="h-6 w-6" />
+                      <Plus className="h-6 w-6 mr-2" />
+                      <span>Create</span>
                     </Link>
                     <Link
                       to="/pricing"
@@ -241,6 +195,7 @@ function Navbar() {
                   </>
                 ) : (
                   <>
+                    {/* Logged out - Show just Pricing and Login */}
                     <Link
                       to="/pricing"
                       className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2"
@@ -250,17 +205,10 @@ function Navbar() {
                     </Link>
                     <Link
                       to="/login"
-                      className="text-charcoal dark:text-white hover:text-pastel-blue font-medium rounded-full px-4 py-3 transition text-base mb-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Log In
-                    </Link>
-                    <Link
-                      to="/signup"
                       className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-full px-6 py-4 shadow-xl transition text-lg mb-2 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Get Started
+                      Log In
                     </Link>
                   </>
                 )}

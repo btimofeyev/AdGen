@@ -34,16 +34,39 @@ function LandingPage() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mb-12"
+          className="mb-8"
         >
           <h1 className="text-5xl font-extrabold mb-4">
-            <span className="text-pastel-blue">Transform</span> Your Product Photos <span className="text-pastel-pink">Instantly</span>
+            <span className="text-pastel-blue">Transform</span> Your Photos <span className="text-pastel-pink">Instantly</span>
           </h1>
-          <p className="text-xl text-charcoal/80 dark:text-gray-300 max-w-2xl mx-auto">
-            Upload, Pick a Scene, and Download Stunning Visuals — Ready for Your Storefront, Ads, and Social Media.
+          <p className="text-xl text-charcoal/80 dark:text-gray-300 max-w-2xl mx-auto mb-8">
+            Upload Any Image, Pick a Scene, and Download Stunning Visuals — Ready for Your Storefront, Ads, and Social Media.
           </p>
+          
+          {/* New Call-to-Action Button */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 300, 
+              damping: 20, 
+              delay: 0.2 
+            }}
+            className="mb-12"
+          >
+            <MotionLink
+              to="/signup"
+              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(123, 223, 242, 0.4)" }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-block bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold text-xl rounded-full px-10 py-5 shadow-xl transition-all border-2 border-pastel-blue"
+            >
+              Get Started Free
+            </MotionLink>
+          </motion.div>
         </motion.div>
-          <motion.div style={{ y: heroImageY }} className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <motion.div style={{ y: heroImageY }} className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6">
           {['before', 'after'].map((type, idx) => (
             <div key={idx} className="bg-background p-4 rounded-xl shadow-xl border border-light-gray/40 dark:border-border">
               <p className="text-center text-sm mb-2 text-charcoal/60 dark:text-gray-400 font-semibold">{type === 'before' ? 'Before' : 'After'}</p>
