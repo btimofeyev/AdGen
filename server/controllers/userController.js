@@ -2,13 +2,14 @@
 
 const supabase   = require('../lib/supabase');
 const stripe     = require('../lib/stripe');
+const { addCredits } = require('../utils/creditUtils');
 
 // Get current subscription information
 exports.getCurrentSubscription = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Fetch at most one “active” subscription, newest first
+    // Fetch at most one "active" subscription, newest first
     const { data: subs, error: fetchErr } = await supabase
       .from('subscriptions')
       .select('*')
@@ -153,6 +154,70 @@ exports.getUserCredits = async (req, res) => {
   } catch (err) {
     console.error('Error in getUserCredits:', err);
     res.status(500).json({ error: 'Failed to fetch user credits' });
+  }
+};
+
+// Add free trial credits for new users
+exports.addFreeTrialCredits = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const FREE_TRIAL_CREDITS = 3; // Number of free credits to give
+    
+    // Check if this user has already received free credits
+    const { data: credits, error: fetchErr } = await supabase
+      .from('user_credits')
+      .select('available_credits, total_credits_received')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (fetchErr) {
+      console.error('Error fetching user credits:', fetchErr);
+      return res.status(500).json({ error: 'Failed to fetch user credits' });
+    }
+    
+    // If user already has credits, or has received credits before, don't give them free credits again
+    if (credits && (credits.available_credits > 0 || credits.total_credits_received > 0)) {
+      return res.status(409).json({ 
+        message: 'User already has credits',
+        credits: credits
+      });
+    }
+    
+    // Add free trial credits
+    const success = await addCredits(
+      userId, 
+      FREE_TRIAL_CREDITS, 
+      'free_trial', 
+      { reason: 'New user free trial' }
+    );
+    
+    if (!success) {
+      return res.status(500).json({ error: 'Failed to add free trial credits' });
+    }
+    
+    // Get updated credits
+    const { data: updatedCredits, error: getErr } = await supabase
+      .from('user_credits')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (getErr) {
+      console.error('Error fetching updated user credits:', getErr);
+      return res.status(200).json({ 
+        message: 'Free trial credits added successfully',
+        credits: { available_credits: FREE_TRIAL_CREDITS }
+      });
+    }
+    
+    return res.status(200).json({
+      message: 'Free trial credits added successfully',
+      credits: updatedCredits
+    });
+    
+  } catch (err) {
+    console.error('Error in addFreeTrialCredits:', err);
+    res.status(500).json({ error: 'Failed to add free trial credits' });
   }
 };
 

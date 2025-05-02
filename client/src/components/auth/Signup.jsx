@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
+import { Zap } from 'lucide-react';
 
 const Signup = ({ isOpen, onClose }) => {
   const { signUp, loading, error } = useAuth();
@@ -65,6 +66,17 @@ const Signup = ({ isOpen, onClose }) => {
               We've sent a confirmation link to your email address.
               Please click the link to activate your account.
             </p>
+            
+            <div className="mt-4 p-4 bg-pastel-blue/10 border border-pastel-blue/30 rounded-lg">
+              <div className="flex items-center mb-2">
+                <Zap className="h-5 w-5 text-pastel-blue mr-2" />
+                <h4 className="font-medium text-charcoal dark:text-white">Free Trial Included!</h4>
+              </div>
+              <p className="text-sm text-charcoal/70 dark:text-gray-300">
+                Once you confirm your email, you'll receive 3 free credits to get started with PostoraAI.
+              </p>
+            </div>
+            
             <Button
               onClick={() => {
                 onClose && onClose();
@@ -132,6 +144,12 @@ const Signup = ({ isOpen, onClose }) => {
                 onChange={handleChange}
                 className="w-full"
               />
+            </div>
+            
+            {/* Free credits notice */}
+            <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-sm text-green-700 flex items-center">
+              <Zap className="h-4 w-4 text-green-600 mr-2" />
+              <span>Sign up now and get 3 free credits to try the platform!</span>
             </div>
             
             <div className="flex items-start space-x-3 pt-2">

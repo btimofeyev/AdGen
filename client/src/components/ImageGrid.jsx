@@ -1,12 +1,20 @@
-// Updated ImageGrid with uniform image display for different aspect ratios
-import React, { useState } from 'react';
+// Updated ImageGrid with external selection state
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Copy, Trash2, Clock, Eye, ImageIcon } from "lucide-react";
+import { Download, Copy, Trash2, Clock, Eye, ImageIcon, Check, CheckSquare } from "lucide-react";
 
-const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
+const ImageGrid = ({ 
+  images, 
+  onDownload, 
+  onCopy, 
+  onModalOpen, 
+  onDelete,
+  selectedImages = {}, // Now passed from parent
+  setSelectedImages = () => {} // Now passed from parent
+}) => {
   const [deletingId, setDeletingId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
-
+  
   // Animation variants for container
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -39,7 +47,16 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
     }
   };
 
-  // Handle delete with confirmation
+  // Toggle image selection
+  const toggleImageSelection = (imageId, e) => {
+    e.stopPropagation(); // Prevent opening the modal
+    setSelectedImages(prev => ({
+      ...prev,
+      [imageId]: !prev[imageId]
+    }));
+  };
+
+  // Handle delete with confirmation for a single image
   const handleDelete = (image) => {
     console.log('Delete button clicked for image:', image.id);
     
@@ -60,7 +77,7 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
     }
   };
 
-  // Get expiration status styling
+  // Get expiration status styling - Smaller badge
   const getExpirationStyle = (daysRemaining) => {
     if (daysRemaining <= 1) {
       return 'bg-pastel-pink text-white border border-pastel-pink/40'; 
@@ -94,7 +111,7 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full">      
       <motion.div 
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-4"
         variants={containerVariants}
@@ -113,13 +130,23 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
               className="relative group"
             >
               <motion.div 
-                className="bg-background rounded-xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-all"
+                className={`bg-background rounded-xl overflow-hidden shadow-sm border transition-all ${
+                  selectedImages[image.id] 
+                    ? 'border-pastel-blue shadow-md' 
+                    : 'border-border hover:shadow-md'
+                }`}
                 whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
               >
-                {/* Clickable image - UPDATED with fixed aspect ratio container */}
+                {/* Clickable image - with fixed aspect ratio container */}
                 <div 
                   className="relative aspect-square overflow-hidden cursor-pointer"
-                  onClick={() => !image.error && onModalOpen(image)}
+                  onClick={() => {
+                    if (Object.values(selectedImages).some(v => v) && !image.error) {
+                      toggleImageSelection(image.id, { stopPropagation: () => {} });
+                    } else if (!image.error) {
+                      onModalOpen(image);
+                    }
+                  }}
                 >
                   {image.error ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-pastel-pink/10 dark:bg-pastel-pink/20 p-3">
@@ -159,11 +186,11 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
                         </div>
                       </motion.div>
                       
-                      {/* Expiration badge */}
+                      {/* SMALLER Expiration badge */}
                       {image.daysRemaining !== undefined && (
-                        <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium flex items-center shadow-md backdrop-blur-sm ${getExpirationStyle(image.daysRemaining)}`}>
-                          <Clock size={12} className="mr-1.5" />
-                          {image.expirationText || `${image.daysRemaining}d`}
+                        <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium flex items-center shadow-sm backdrop-blur-sm ${getExpirationStyle(image.daysRemaining)}`}>
+                          <Clock size={10} className="mr-1" />
+                          <span className="text-[10px]">{image.daysRemaining}d</span>
                         </div>
                       )}
                     </>
@@ -180,7 +207,7 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
                   </p>
                 </div>
                 
-                {/* Action buttons at the bottom */}
+                {/* Action buttons at the bottom - now includes selection */}
                 {!image.error && (
                   <div className="flex justify-between p-3 pt-0 gap-2">
                     <div className="flex space-x-1">
@@ -202,6 +229,25 @@ const ImageGrid = ({ images, onDownload, onCopy, onModalOpen, onDelete }) => {
                         title="Copy"
                       >
                         <Copy size={16} className="text-charcoal/70 dark:text-white hover:text-charcoal dark:hover:text-pastel-blue" />
+                      </motion.button>
+                      
+                      {/* New selection button in the action row */}
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={(e) => toggleImageSelection(image.id, e)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors ${
+                          selectedImages[image.id]
+                            ? 'bg-pastel-blue text-white'
+                            : 'hover:bg-soft-white dark:hover:bg-[#23262F] text-charcoal/70 dark:text-white hover:text-charcoal dark:hover:text-pastel-blue'
+                        }`}
+                        title="Select"
+                      >
+                        {selectedImages[image.id] ? (
+                          <CheckSquare size={16} className="text-white" />
+                        ) : (
+                          <CheckSquare size={16} className="text-charcoal/70 dark:text-white hover:text-charcoal dark:hover:text-pastel-blue" />
+                        )}
                       </motion.button>
                     </div>
 

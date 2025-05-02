@@ -13,6 +13,7 @@ import {
   Download,
   Copy,
   Plus,
+  Trash2,
   Check,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
@@ -20,9 +21,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { API_URL } from "../config";
 import supabase from "../lib/supabase";
 import ImageModal from "../components/ImageModal";
+import ConfirmationModal from "../components/ConfirmationModal";
 import ImageGrid from "../components/ImageGrid";
 import UserCredits from "../components/UserCredits";
-
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 function AdCreator() {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
@@ -46,7 +49,7 @@ function AdCreator() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("create");
-  const [imageSize, setImageSize] = useState('1024x1024');
+  const [imageSize, setImageSize] = useState("1024x1024");
 
   // State for tracking if a generation request is in progress
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +61,13 @@ function AdCreator() {
 
   const promptInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+
+  const [selectedImages, setSelectedImages] = useState({});
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   // Focus on prompt input on component mount
   useEffect(() => {
@@ -330,12 +340,12 @@ function AdCreator() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-  
+
       // Generate a unique ID for this request
       const requestId = `${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)}`;
-  
+
       // Remove the quality parameter - it will be set on the backend
       const requestBody = {
         filepaths: filePaths, // Array of file paths
@@ -344,14 +354,14 @@ function AdCreator() {
         requestId,
         size: imageSize, // This is the correct size parameter
       };
-  
+
       console.log(
         `Sending multi-image generation request: ${requestId} for ${numImages} images with ${filePaths.length} reference images at size ${imageSize}`
       );
-  
+
       // Confirm the size is in the request body
-      console.log('Request body:', JSON.stringify(requestBody));
-  
+      console.log("Request body:", JSON.stringify(requestBody));
+
       const response = await fetch(`${API_URL}/generate/multiple-references`, {
         method: "POST",
         headers: {
@@ -360,7 +370,7 @@ function AdCreator() {
         },
         body: JSON.stringify(requestBody),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 402) {
@@ -373,7 +383,7 @@ function AdCreator() {
         }
         throw new Error(errorData.error || "Failed to generate images");
       }
-  
+
       const data = await response.json();
       return data.results;
     } catch (err) {
@@ -381,7 +391,6 @@ function AdCreator() {
       return [];
     }
   };
-  
 
   // Generate images from scratch - unchanged
   const generateImagesFromScratch = async () => {
@@ -389,22 +398,22 @@ function AdCreator() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-  
+
       const requestId = `${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)}`;
-  
+
       const requestBody = {
         prompt: prompt,
         count: numImages,
         requestId,
-        size: imageSize,   
+        size: imageSize,
       };
-  
+
       console.log(
         `Sending image generation from scratch request: ${requestId} for ${numImages} images at size ${imageSize}`
       );
-  
+
       const response = await fetch(`${API_URL}/generate/multiple`, {
         method: "POST",
         headers: {
@@ -413,7 +422,7 @@ function AdCreator() {
         },
         body: JSON.stringify(requestBody),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 402) {
@@ -426,7 +435,7 @@ function AdCreator() {
         }
         throw new Error(errorData.error || "Failed to generate images");
       }
-  
+
       const data = await response.json();
       return data.results;
     } catch (err) {
@@ -614,8 +623,78 @@ function AdCreator() {
   };
 
   // Handle downloading all images - unchanged
-  const handleDownloadAll = () => {
-    alert("Download all functionality would go here");
+  const handleDownloadAll = async () => {
+    if (generatedImages.length === 0) return;
+    
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    
+    try {
+      const zip = new JSZip();
+      
+      // Create a folder inside the zip for the images
+      const imagesFolder = zip.folder("all-images");
+      
+      // Process each image
+      for (let i = 0; i < generatedImages.length; i++) {
+        const image = generatedImages[i];
+        
+        if (image.error || !image.base64Image) continue;
+        
+        // Extract base64 data
+        const base64Data = image.base64Image.split(',')[1];
+        
+        // Add image to zip with meaningful filename
+        const fileName = `image-${i+1}-${image.id}.png`;
+        imagesFolder.file(fileName, base64Data, { base64: true });
+        
+        // Update progress
+        setDownloadProgress(Math.round(((i + 1) / generatedImages.length) * 100));
+      }
+      
+      // Generate README with information
+      const readme = 
+  `# All Images from PostoraAI
+  Download date: ${new Date().toISOString().slice(0, 10)}
+  Number of images: ${generatedImages.length}
+  
+  Note: Images generated with PostoraAI will be automatically deleted after 7 days.
+  Please keep these downloaded files if you want to preserve them.`;
+  
+      zip.file("README.txt", readme);
+      
+      // Generate the zip file
+      const content = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 }
+      });
+      
+      // Download the zip file
+      saveAs(content, `postoraai-all-images-${Date.now()}.zip`);
+      
+    } catch (error) {
+      console.error("Error creating zip file:", error);
+      alert("Failed to download all images. Please try again.");
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+    }
+  };
+  
+  // Handle deleting selected images
+  const handleDeleteSelected = () => {
+    const selectedIds = Object.keys(selectedImages).filter(id => selectedImages[id]);
+    if (selectedIds.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected image${selectedIds.length !== 1 ? 's' : ''}? This action cannot be undone.`)) {
+      selectedIds.forEach(id => {
+        handleDeleteImage(id);
+      });
+      
+      // Clear selections after deletion
+      setSelectedImages({});
+    }
   };
 
   const funPrompts = [
@@ -749,202 +828,257 @@ function AdCreator() {
     );
   };
 
-const SidebarContent = useMemo(
-  () => (
-    <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
-      {/* Credit Usage */}
-      <div className="mb-8">
-        <UserCredits
-          credits={credits}
-          creditsLoading={creditsLoading}
-          subscription={subscription}
-          onRefresh={handleRefreshCredits}
-          error={creditsError}
-        />
-      </div>
+  const SidebarContent = useMemo(
+    () => (
+      <div className="w-80 p-6 bg-[#23262F] border-l border-[#23262F]/60 overflow-y-auto">
+        {/* Credit Usage */}
+        <div className="mb-8">
+          <UserCredits
+            credits={credits}
+            creditsLoading={creditsLoading}
+            subscription={subscription}
+            onRefresh={handleRefreshCredits}
+            error={creditsError}
+          />
+        </div>
 
-      {/* Number of Images Selector */}
-      <div className="mb-8">
-        <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
+        {/* Number of Images Selector */}
+        <div className="mb-8">
+          <h2 className="text-lg font-bold mb-3">How Many Visuals?</h2>
 
-        {/* Credit Status Indicator */}
-        {!creditsLoading && credits && (
-          <div
-            className={`mb-4 p-3 rounded-lg text-sm ${
-              credits.available_credits < numImages
-                ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
-                : credits.available_credits < 5
-                ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
-                : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
-            }`}
-          >
-            <div className="flex items-center">
-              <Zap size={14} className="mr-2 flex-shrink-0" />
-              <span className="font-medium">
-                {credits.available_credits < numImages
-                  ? `Need ${
-                      numImages - credits.available_credits
-                    } more credit${
-                      numImages - credits.available_credits !== 1 ? "s" : ""
-                    }`
-                  : `${credits.available_credits} credit${
-                      credits.available_credits !== 1 ? "s" : ""
-                    } available`}
-              </span>
-            </div>
-            {credits.available_credits < numImages && (
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Link
-                  to="/account"
-                  className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
-                >
-                  Get More Credits
-                </Link>
-              </motion.div>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((num) => (
-            <motion.button
-              key={num}
-              whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setNumImages(num)}
-              className={`rounded-lg py-3 font-semibold transition-all ${
-                numImages === num
-                  ? "bg-pastel-blue text-charcoal shadow-md"
-                  : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
+          {/* Credit Status Indicator */}
+          {!creditsLoading && credits && (
+            <div
+              className={`mb-4 p-3 rounded-lg text-sm ${
+                credits.available_credits < numImages
+                  ? "bg-gradient-to-r from-pastel-pink/20 to-pastel-pink/5 text-pastel-pink border border-pastel-pink/20"
+                  : credits.available_credits < 5
+                  ? "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200/30"
+                  : "bg-gradient-to-r from-green-100 to-green-50 text-green-700 border border-green-200/30"
               }`}
             >
-              {num}
+              <div className="flex items-center">
+                <Zap size={14} className="mr-2 flex-shrink-0" />
+                <span className="font-medium">
+                  {credits.available_credits < numImages
+                    ? `Need ${
+                        numImages - credits.available_credits
+                      } more credit${
+                        numImages - credits.available_credits !== 1 ? "s" : ""
+                      }`
+                    : `${credits.available_credits} credit${
+                        credits.available_credits !== 1 ? "s" : ""
+                      } available`}
+                </span>
+              </div>
+              {credits.available_credits < numImages && (
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Link
+                    to="/account"
+                    className="mt-2 block text-center w-full px-3 py-1.5 bg-background dark:bg-pastel-blue text-foreground dark:text-[#181A20] rounded-md text-xs font-medium shadow-sm hover:shadow transition-all"
+                  >
+                    Get More Credits
+                  </Link>
+                </motion.div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((num) => (
+              <motion.button
+                key={num}
+                whileHover={{ scale: numImages !== num ? 1.05 : 1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setNumImages(num)}
+                className={`rounded-lg py-3 font-semibold transition-all ${
+                  numImages === num
+                    ? "bg-pastel-blue text-charcoal shadow-md"
+                    : "bg-background text-foreground hover:bg-pastel-blue/80 dark:hover:bg-pastel-blue/60 hover:text-[#181A20] dark:hover:text-[#181A20] border border-border"
+                }`}
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+
+          {/* Credit cost explanation */}
+          <p className="text-xs text-charcoal/60 mt-3 text-center">
+            Each image costs 1 credit
+          </p>
+        </div>
+
+        {/* Image Size Selector - NEW SECTION */}
+        <div className="mb-8">
+          <h2 className="text-lg font-bold mb-3">Image Size</h2>
+          <div className="space-y-2">
+            {/* Square size option */}
+            <motion.button
+              whileHover={{ scale: imageSize !== "1024x1024" ? 1.02 : 1 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setImageSize("1024x1024")}
+              className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+                imageSize === "1024x1024"
+                  ? "bg-pastel-blue/20 border-pastel-blue text-white"
+                  : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                  <div className="w-8 h-8 border-2 border-current rounded"></div>
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Square</div>
+                  <div className="text-xs opacity-70">1024 × 1024</div>
+                </div>
+              </div>
+              {imageSize === "1024x1024" && (
+                <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                  <Check size={12} className="text-[#181A20]" />
+                </div>
+              )}
             </motion.button>
-          ))}
+
+            {/* Landscape size option */}
+            <motion.button
+              whileHover={{ scale: imageSize !== "1536x1024" ? 1.02 : 1 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setImageSize("1536x1024")}
+              className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+                imageSize === "1536x1024"
+                  ? "bg-pastel-blue/20 border-pastel-blue text-white"
+                  : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                  <div className="w-10 h-7 border-2 border-current rounded"></div>
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Landscape</div>
+                  <div className="text-xs opacity-70">1536 × 1024</div>
+                </div>
+              </div>
+              {imageSize === "1536x1024" && (
+                <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                  <Check size={12} className="text-[#181A20]" />
+                </div>
+              )}
+            </motion.button>
+
+            {/* Portrait size option */}
+            <motion.button
+              whileHover={{ scale: imageSize !== "1024x1536" ? 1.02 : 1 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setImageSize("1024x1536")}
+              className={`w-full p-3 rounded-lg flex items-center justify-between border ${
+                imageSize === "1024x1536"
+                  ? "bg-pastel-blue/20 border-pastel-blue text-white"
+                  : "bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40"
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
+                  <div className="w-7 h-10 border-2 border-current rounded"></div>
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Portrait</div>
+                  <div className="text-xs opacity-70">1024 × 1536</div>
+                </div>
+              </div>
+              {imageSize === "1024x1536" && (
+                <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
+                  <Check size={12} className="text-[#181A20]" />
+                </div>
+              )}
+            </motion.button>
+          </div>
         </div>
 
-        {/* Credit cost explanation */}
-        <p className="text-xs text-charcoal/60 mt-3 text-center">
-          Each image costs 1 credit
-        </p>
-      </div>
-
-      {/* Image Size Selector - NEW SECTION */}
-      <div className="mb-8">
-        <h2 className="text-lg font-bold mb-3">Image Size</h2>
-        <div className="space-y-2">
-          {/* Square size option */}
-          <motion.button
-            whileHover={{ scale: imageSize !== '1024x1024' ? 1.02 : 1 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setImageSize('1024x1024')}
-            className={`w-full p-3 rounded-lg flex items-center justify-between border ${
-              imageSize === '1024x1024'
-                ? 'bg-pastel-blue/20 border-pastel-blue text-white'
-                : 'bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40'
-            }`}
-          >
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
-                <div className="w-8 h-8 border-2 border-current rounded"></div>
-              </div>
-              <div className="text-left">
-                <div className="font-medium">Square</div>
-                <div className="text-xs opacity-70">1024 × 1024</div>
-              </div>
-            </div>
-            {imageSize === '1024x1024' && (
-              <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
-                <Check size={12} className="text-[#181A20]" />
-              </div>
-            )}
-          </motion.button>
-
-          {/* Landscape size option */}
-          <motion.button
-            whileHover={{ scale: imageSize !== '1536x1024' ? 1.02 : 1 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setImageSize('1536x1024')}
-            className={`w-full p-3 rounded-lg flex items-center justify-between border ${
-              imageSize === '1536x1024'
-                ? 'bg-pastel-blue/20 border-pastel-blue text-white'
-                : 'bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40'
-            }`}
-          >
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
-                <div className="w-10 h-7 border-2 border-current rounded"></div>
-              </div>
-              <div className="text-left">
-                <div className="font-medium">Landscape</div>
-                <div className="text-xs opacity-70">1536 × 1024</div>
-              </div>
-            </div>
-            {imageSize === '1536x1024' && (
-              <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
-                <Check size={12} className="text-[#181A20]" />
-              </div>
-            )}
-          </motion.button>
-
-          {/* Portrait size option */}
-          <motion.button
-            whileHover={{ scale: imageSize !== '1024x1536' ? 1.02 : 1 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setImageSize('1024x1536')}
-            className={`w-full p-3 rounded-lg flex items-center justify-between border ${
-              imageSize === '1024x1536'
-                ? 'bg-pastel-blue/20 border-pastel-blue text-white'
-                : 'bg-background/20 border-background/40 text-white/70 hover:border-pastel-blue/40'
-            }`}
-          >
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-background/30 rounded flex items-center justify-center mr-3">
-                <div className="w-7 h-10 border-2 border-current rounded"></div>
-              </div>
-              <div className="text-left">
-                <div className="font-medium">Portrait</div>
-                <div className="text-xs opacity-70">1024 × 1536</div>
-              </div>
-            </div>
-            {imageSize === '1024x1536' && (
-              <div className="w-5 h-5 rounded-full bg-pastel-blue flex items-center justify-center">
-                <Check size={12} className="text-[#181A20]" />
-              </div>
-            )}
-          </motion.button>
+        {/* Help & Tips */}
+        <div>
+          <h2 className="text-lg font-bold mb-3">Tips</h2>
+          <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
+            <p className="text-sm text-white/70">
+              <span className="text-pastel-blue font-medium block mb-1">
+                Be specific
+              </span>
+              Describe lighting, environment, and style for best results.
+            </p>
+            <p className="text-sm text-white/70">
+              <span className="text-pastel-blue font-medium block mb-1">
+                Try multiple images
+              </span>
+              Upload up to 4 products to create complex scenes.
+            </p>
+          </div>
         </div>
       </div>
+    ),
+    [credits, creditsLoading, numImages, imageSize, subscription, creditsError]
+  );
+  const handleDownloadSelected = async () => {
+    const selectedIds = Object.keys(selectedImages).filter(id => selectedImages[id]);
+    if (selectedIds.length === 0) return;
+    
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    
+    try {
+      const zip = new JSZip();
+      const selectedImageObjects = generatedImages.filter(image => selectedImages[image.id]);
       
-      {/* Help & Tips */}
-      <div>
-        <h2 className="text-lg font-bold mb-3">Tips</h2>
-        <div className="p-3 rounded-lg bg-background/20 border border-border/20 space-y-3">
-          <p className="text-sm text-white/70">
-            <span className="text-pastel-blue font-medium block mb-1">Be specific</span>
-            Describe lighting, environment, and style for best results.
-          </p>
-          <p className="text-sm text-white/70">
-            <span className="text-pastel-blue font-medium block mb-1">Try multiple images</span>
-            Upload up to 4 products to create complex scenes.
-          </p>
-        </div>
-      </div>
-    </div>
-  ),
-  [
-    credits,
-    creditsLoading,
-    numImages,
-    imageSize,
-    subscription,
-    creditsError,
-  ]
-);
-
+      // Create a folder inside the zip for the images
+      const imagesFolder = zip.folder("selected-images");
+      
+      // Process each selected image
+      for (let i = 0; i < selectedImageObjects.length; i++) {
+        const image = selectedImageObjects[i];
+        
+        // Extract base64 data
+        const base64Data = image.base64Image.split(',')[1];
+        
+        // Add image to zip with meaningful filename
+        const fileName = `image-${i+1}-${image.id}.png`;
+        imagesFolder.file(fileName, base64Data, { base64: true });
+        
+        // Update progress
+        setDownloadProgress(Math.round(((i + 1) / selectedImageObjects.length) * 100));
+      }
+      
+      // Generate README with information
+      const readme = 
+  `# Selected Images from PostoraAI
+  Download date: ${new Date().toISOString().slice(0, 10)}
+  Number of images: ${selectedImageObjects.length}
+  
+  Note: Images generated with PostoraAI will be automatically deleted after 7 days.
+  Please keep these downloaded files if you want to preserve them.`;
+  
+      zip.file("README.txt", readme);
+      
+      // Generate the zip file
+      const content = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 }
+      });
+      
+      // Download the zip file
+      saveAs(content, `postoraai-selected-images-${Date.now()}.zip`);
+      
+    } catch (error) {
+      console.error("Error creating zip file:", error);
+      alert("Failed to download selected images. Please try again.");
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+    }
+  };
+  
   return (
     <div className="min-h-screen flex bg-[#181A20] text-gray-100">
       {/* Always render the hidden file input for uploads */}
@@ -1282,6 +1416,7 @@ const SidebarContent = useMemo(
                   )}
                 </div>
               )}
+
               {/* Gallery Tab */}
               {activeTab === "gallery" && (
                 <div className="w-full max-w-6xl mx-auto flex flex-col h-full">
@@ -1297,32 +1432,6 @@ const SidebarContent = useMemo(
                             } • All images expire after 7 days`
                           : "Create your first visual to see it here"}
                       </p>
-                    </div>
-
-                    <div className="flex space-x-3">
-                      {!isLoadingImages && generatedImages.length > 0 && (
-                        <>
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={handleDownloadAll}
-                            className="flex items-center gap-1.5 py-2 px-4 bg-[#23262F] border border-[#23262F]/60 hover:border-pastel-blue/40 text-gray-200 hover:text-white rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all"
-                          >
-                            <Download size={14} />
-                            <span>Download All</span>
-                          </motion.button>
-
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={handleRefreshImages}
-                            className="flex items-center gap-1.5 py-2 px-4 bg-pastel-blue text-[#181A20] rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all hover:bg-pastel-blue/90"
-                          >
-                            <RefreshCw size={14} className="mr-1" />
-                            <span>Refresh</span>
-                          </motion.button>
-                        </>
-                      )}
                     </div>
                   </div>
 
@@ -1351,12 +1460,107 @@ const SidebarContent = useMemo(
                     </div>
                   ) : generatedImages.length > 0 ? (
                     <div className="bg-[#23262F] p-6 rounded-2xl border border-[#23262F]/60 shadow-sm flex-grow overflow-y-auto">
+                      {/* Selection Actions Panel - We're keeping this from the ImageGrid component */}
+                      {selectedImages &&
+                        Object.values(selectedImages).filter((v) => v).length >
+                          0 && (
+                          <div className="mb-4 p-4 rounded-lg bg-[#181A20] border border-[#181A20]/60 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-white font-medium">
+                                {
+                                  Object.values(selectedImages).filter((v) => v)
+                                    .length
+                                }{" "}
+                                selected
+                              </span>
+
+                              <button
+                                onClick={() => {
+                                  // Call the ImageGrid's selectAll method
+                                  const newSelected = {};
+                                  generatedImages.forEach((image) => {
+                                    if (!image.error) {
+                                      newSelected[image.id] = true;
+                                    }
+                                  });
+                                  setSelectedImages(newSelected);
+                                }}
+                                className="text-sm text-white/70 hover:text-pastel-blue transition"
+                              >
+                                Select all
+                              </button>
+
+                              <button
+                                onClick={() => setSelectedImages({})}
+                                className="text-sm text-white/70 hover:text-pastel-blue transition"
+                              >
+                                Clear selection
+                              </button>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleDownloadSelected}
+                                disabled={isDownloading}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                                  isDownloading
+                                    ? "bg-pastel-blue/30 text-pastel-blue/60 cursor-not-allowed"
+                                    : "bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20]"
+                                }`}
+                              >
+                                {isDownloading ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-t-transparent border-[#181A20]/60 rounded-full animate-spin mr-1" />
+                                    {downloadProgress}%
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download size={14} />
+                                    Download Selected
+                                  </>
+                                )}
+                              </motion.button>
+
+                              <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleDeleteSelected}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-pastel-pink hover:bg-pastel-pink/80 text-white"
+                              >
+                                <Trash2 size={14} />
+                                Delete Selected
+                              </motion.button>
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Always visible action buttons - when no selection */}
+                      {(!selectedImages ||
+                        Object.values(selectedImages).filter((v) => v)
+                          .length === 0) && (
+                        <div className="mb-4 flex items-center justify-end gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={handleDownloadAll}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20]"
+                          >
+                            <Download size={14} />
+                            Download All
+                          </motion.button>
+                        </div>
+                      )}
+
                       <ImageGrid
                         images={generatedImages}
                         onDownload={handleDownload}
                         onCopy={handleCopyImage}
                         onModalOpen={handleOpenModal}
                         onDelete={handleDeleteImage}
+                        selectedImages={selectedImages}
+                        setSelectedImages={setSelectedImages}
                       />
                     </div>
                   ) : (
@@ -1467,6 +1671,16 @@ const SidebarContent = useMemo(
         onDownload={handleDownload}
         onCopy={handleCopyImage}
         onDelete={handleDeleteImage}
+      />
+      <ConfirmationModal
+        isOpen={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        onConfirm={confirmAction}
+        title="Confirm Deletion"
+        message={confirmMessage}
+        confirmText="Delete"
+        cancelText="Cancel"
+        destructive={true}
       />
     </div>
   );

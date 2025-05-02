@@ -1,5 +1,7 @@
+// client/src/contexts/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import supabase from '../lib/supabase';
+import { API_URL } from '../config';
 
 // Create the authentication context
 const AuthContext = createContext();
@@ -33,6 +35,11 @@ export const AuthProvider = ({ children }) => {
           setSession(data.session);
           setUser(data.session?.user || null);
           console.log('Session initialized:', !!data.session);
+          
+          // Check if user logged in and ensure they have free credits
+          if (data.session?.user) {
+            await ensureUserHasFreeCredits(data.session.user.id, data.session);
+          }
         }
       } catch (err) {
         console.error('Unexpected error during auth initialization:', err);
@@ -50,6 +57,11 @@ export const AuthProvider = ({ children }) => {
         console.log('Auth state changed:', event);
         setSession(newSession);
         setUser(newSession?.user || null);
+        
+        // If a user just signed in or was confirmed, ensure they have free credits
+        if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && newSession?.user) {
+          await ensureUserHasFreeCredits(newSession.user.id, newSession);
+        }
       }
     );
 
@@ -60,6 +72,46 @@ export const AuthProvider = ({ children }) => {
       }
     };
   }, []);
+  
+  // Function to ensure new users get free credits
+  const ensureUserHasFreeCredits = async (userId, userSession) => {
+    if (!userId || !userSession) return;
+    
+    try {
+      // Check if the user already has credits
+      const response = await fetch(`${API_URL}/users/credits`, {
+        headers: {
+          Authorization: `Bearer ${userSession.access_token}`
+        }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        
+        // If user has 0 credits, they might be new - give them free trial credits
+        if (userData.available_credits === 0 && userData.total_credits_received === 0) {
+          console.log('New user detected, granting free trial credits');
+          
+          // Call the endpoint to grant free trial credits
+          const freeTrialResponse = await fetch(`${API_URL}/users/credits/free-trial`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userSession.access_token}`
+            }
+          });
+          
+          if (freeTrialResponse.ok) {
+            console.log('Successfully granted free trial credits to new user');
+          } else {
+            console.error('Failed to grant free trial credits:', await freeTrialResponse.text());
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error ensuring user has free credits:', err);
+    }
+  };
 
   // Sign up function
   const signUp = async (email, password, metaData = {}) => {
