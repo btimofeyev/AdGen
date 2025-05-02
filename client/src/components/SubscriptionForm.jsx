@@ -11,25 +11,38 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
   const stripe = useStripe();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const handleCheckout = async () => {
-    if (!user || !stripe) return;
+    if (!user || !stripe) {
+      setError("Unable to initialize payment - please refresh the page and try again");
+      return;
+    }
     
     try {
       setLoading(true);
       setError(null);
+      setDebugInfo(null);
       
       // Get auth token
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
       }
+      
+      if (!session) {
+        throw new Error('No active session - please log in again');
+      }
+      
+      // Log payment attempt for debugging
+      console.log(`Payment attempt initiated: Plan ${plan.id} (${plan.stripePriceId}) for $${plan.price}`);
       
       // Get the success and cancel URLs based on current location
       const successUrl = `${window.location.origin}/create?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = window.location.href;
       
       // Create checkout session
+      console.log('Creating checkout session...');
       const response = await fetch(`${API_URL}/subscriptions/create-checkout-session`, {
         method: 'POST',
         headers: {
@@ -44,12 +57,36 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
         }),
       });
       
+      // Check for server errors
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
+        let errorMessage = 'Failed to create checkout session';
+        let errorDetails = {};
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          errorDetails = errorData;
+        } catch (parseError) {
+          errorDetails = { 
+            parseError: 'Could not parse error response',
+            status: response.status,
+            statusText: response.statusText
+          };
+        }
+        
+        console.error('Server error details:', errorDetails);
+        setDebugInfo(errorDetails);
+        throw new Error(errorMessage);
       }
       
-      const { sessionId } = await response.json();
+      const responseData = await response.json();
+      const { sessionId } = responseData;
+      
+      if (!sessionId) {
+        throw new Error('No session ID returned from server');
+      }
+      
+      console.log('Redirecting to Stripe checkout...');
       
       // Redirect to Stripe Checkout
       const { error: redirectError } = await stripe.redirectToCheckout({
@@ -57,17 +94,37 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
       });
       
       if (redirectError) {
+        console.error('Stripe redirect error:', redirectError);
+        
+        // Get detailed error information
+        const detailedError = {
+          type: redirectError.type,
+          code: redirectError.code,
+          message: redirectError.message,
+          decline_code: redirectError.decline_code,
+          doc_url: redirectError.doc_url,
+          param: redirectError.param
+        };
+        
+        setDebugInfo(detailedError);
         throw redirectError;
       }
-    } catch (error) {
-      console.error("Payment Error Details:", {
-        type: error.type,
-        code: error.code,
-        param: error.param,
-        message: error.message,
-        decline_code: error.decline_code,
-        doc_url: error.doc_url
-      });
+    } catch (err) {
+      console.error('Checkout error:', err);
+      
+      // Format the error message for display
+      let errorMessage = err.message || 'An unexpected error occurred';
+      
+      // Special handling for common Stripe errors
+      if (err.type === 'card_error') {
+        errorMessage = `Card error: ${err.message}`;
+      } else if (err.type === 'validation_error') {
+        errorMessage = `Validation error: ${err.message}`;
+      } else if (err.type === 'invalid_request_error') {
+        errorMessage = `Request error: ${err.message}`;
+      }
+      
+      setError(errorMessage);
       if (onError) onError(err);
     } finally {
       setLoading(false);
@@ -78,7 +135,13 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
     <div>
       {error && (
         <div className="mb-4 p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-md text-red-600 text-sm">
-          {error}
+          <p className="font-medium">{error}</p>
+          {debugInfo && (
+            <div className="mt-2 text-xs">
+              <p>Error details: {JSON.stringify(debugInfo, null, 2)}</p>
+              <p className="mt-1">If this problem persists, please contact support with this information.</p>
+            </div>
+          )}
         </div>
       )}
       
