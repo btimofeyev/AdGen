@@ -120,6 +120,7 @@ const PricingPage = () => {
         popular: false,
         buttonText: 'Buy Pack',
         stripePriceId: 'price_1RIzGMDNIr7FzuSF8hVxsDz1',
+        
         discount: 33  // 33% off
       },
       {
@@ -133,7 +134,7 @@ const PricingPage = () => {
         credits: 50,
         popular: false,
         buttonText: 'Start Monthly',
-        stripePriceId: 'price_1RIzGMDNIr7FzuSF8hVxsDz1',
+        stripePriceId: 'price_1RIzJHDNIr7FzuSFi90pGJBM',
         discount: 33  // 33% off
       },
       {
