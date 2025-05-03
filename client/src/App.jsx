@@ -5,6 +5,8 @@ import LandingPage from './pages/LandingPage';
 import AdCreator from './pages/AdCreator';
 import PricingPage from './pages/PricingPage';
 import AccountPage from './pages/AccountPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
@@ -21,6 +23,9 @@ function AppRoutes() {
   
   // Check if we're on the create page or account page
   const isAppPage = location.pathname === '/create' || location.pathname === '/account';
+
+  // Check if we're on a legal page
+  const isLegalPage = location.pathname === '/terms' || location.pathname === '/privacy';
 
   const handleClose = () => {
     navigate(-1);
@@ -45,6 +50,10 @@ function AppRoutes() {
           <Route path="/login" element={<LandingPage />} />
           <Route path="/signup" element={<LandingPage />} />
           <Route path="/forgot-password" element={<LandingPage />} />
+          
+          {/* Legal Pages */}
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>
         
         {/* Modals */}
@@ -58,6 +67,9 @@ function AppRoutes() {
           <ForgotPassword isOpen={true} onClose={handleClose} />
         )}
       </div>
+      
+      {/* Only render Footer if not on the app pages or legal pages */}
+      {!isAppPage && !isLegalPage && <Footer />}
     </>
   );
 }
