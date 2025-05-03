@@ -1,4 +1,3 @@
-// client/src/components/UserCredits.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, Zap, CreditCard, CheckCircle } from 'lucide-react';
@@ -13,11 +12,8 @@ const UserCredits = ({ credits, creditsLoading, subscription, onRefresh, error }
   const usedCredits = credits?.credits_used || 0;
   const availableCredits = credits?.available_credits || 0;
   const usagePercentage = totalCredits > 0 ? (usedCredits / totalCredits) * 100 : 0;
-  
-  // Check if this is likely a new user with just free trial credits
   const isNewUser = totalCredits === 3 && usedCredits === 0;
   
-  // Check localStorage on mount to see if welcome message was dismissed
   useEffect(() => {
     const wasWelcomeDismissed = localStorage.getItem('welcomeMessageDismissed') === 'true';
     if (wasWelcomeDismissed) {
@@ -25,10 +21,8 @@ const UserCredits = ({ credits, creditsLoading, subscription, onRefresh, error }
     }
   }, []);
   
-  // Handle closing welcome message
   const dismissWelcome = () => {
     setShowWelcome(false);
-    // Store dismissal in localStorage
     localStorage.setItem('welcomeMessageDismissed', 'true');
   };
 
@@ -54,7 +48,6 @@ const UserCredits = ({ credits, creditsLoading, subscription, onRefresh, error }
 
   return (
     <div className="bg-background rounded-lg border border-border shadow-sm p-4">
-      {/* Free trial welcome message for new users */}
       {showWelcome && isNewUser && (
         <div className="mb-4 p-3 bg-pastel-blue/10 border border-pastel-blue/20 rounded-lg">
           <div className="flex items-start">

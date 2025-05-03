@@ -1,11 +1,8 @@
-// server/controllers/imageController.js
 const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
-const dotenv = require('dotenv');
 const supabase = require('../lib/supabase');
 const { hasEnoughCredits, deductCredits, ensureUserHasCredits } = require('../utils/creditUtils');
-dotenv.config();
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -46,11 +43,9 @@ const uploadImages = async (req, res) => {
   const filePaths = [];
   const fileNames = [];
   
-  // Process each uploaded file
   for (const file of req.files) {
     const filePath = file.path;
     
-    // Mark the file with timestamp for cleanup
     fs.writeFileSync(`${filePath}.meta`, JSON.stringify({
       uploadTime: Date.now(),
       userID: req.user?.id || 'anonymous',
@@ -74,10 +69,8 @@ const generateWithMultipleReferences = async (req, res) => {
     const { filepaths, prompt, count = 1, size = "1024x1024", quality = "low", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
-    // Create unique request ID
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Ensure user has credits if authenticated
     if (userId) {
       await ensureUserHasCredits(userId);
       
@@ -90,7 +83,6 @@ const generateWithMultipleReferences = async (req, res) => {
       }
     }
     
-    // Validate filepaths
     if (!filepaths || !Array.isArray(filepaths) || filepaths.length === 0) {
       return res.status(400).json({ 
         error: 'Invalid file paths', 
@@ -98,7 +90,6 @@ const generateWithMultipleReferences = async (req, res) => {
       });
     }
 
-    // Check if all files exist
     for (const filepath of filepaths) {
       if (!fs.existsSync(filepath)) {
         return res.status(400).json({ 
@@ -123,7 +114,7 @@ const generateWithMultipleReferences = async (req, res) => {
           filepaths,
           prompt,
           `Generated Image ${i+1}`,
-          size,  // Use the requested size 
+          size,
           quality,
           userId
         ));
@@ -137,7 +128,6 @@ const generateWithMultipleReferences = async (req, res) => {
       result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Failed to generate image' }
     );
     
-    // Deduct credits for successful generations
     if (userId) {
       const successfulCount = processedResults.filter(r => !r.error).length;
       if (successfulCount > 0) {
@@ -152,7 +142,6 @@ const generateWithMultipleReferences = async (req, res) => {
       }
     }
     
-    // Mark all files for cleanup
     filepaths.forEach(filepath => {
       markFileForCleanup(filepath, userId);
     });
@@ -168,13 +157,11 @@ const generateWithMultipleReferences = async (req, res) => {
       details: error.message
     });
   }
-
 };
 
 // Generate images with multiple reference images
 async function generateImageWithMultipleReferences(filepaths, prompt, title, size, quality, userId = null) {
   try {
-    // Convert all images to OpenAI-compatible format
     const imageFiles = [];
     
     for (const filepath of filepaths) {
@@ -186,22 +173,12 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
       imageFiles.push(imageFile);
     }
     
-    // Add console.log to verify parameters
-    console.log('OpenAI edit request parameters:', {
-      model: "gpt-image-1",
-      imageCount: imageFiles.length,
-      prompt,
-      size,
-      quality
-    });
-    
-    // Call OpenAI API with multiple images
     const result = await openai.images.edit({
       model: "gpt-image-1",
-      image: imageFiles, // Pass array of images
+      image: imageFiles,
       prompt,
       n: 1,
-      size: size, // Make sure this is exactly as requested
+      size: size,
       quality: quality
     });
     
@@ -211,12 +188,10 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
     let dbRecord = null;
     let storageUrl = null;
     
-    // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
     if (userId) {
-      // Store in Supabase with additional metadata
       const imageData = await storeImageInSupabase(
         userId, 
         outputFilename, 
@@ -246,8 +221,6 @@ async function generateImageWithMultipleReferences(filepaths, prompt, title, siz
       expires_at: expiresAt.toISOString()
     };
   } catch (error) {
-    console.error('Error generating image with multiple references:', error);
-    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 }
@@ -258,10 +231,8 @@ const generateMultipleAds = async (req, res) => {
     const { filepath, prompt, count = 1, size = "1024x1024", quality = "low", requestId: clientRequestId } = req.body;
     const userId = req.user ? req.user.id : null;
     
-    // Create unique request ID
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Ensure user has credits if authenticated
     if (userId) {
       await ensureUserHasCredits(userId);
       
@@ -274,13 +245,11 @@ const generateMultipleAds = async (req, res) => {
       }
     }
     
-    // If no filepath but prompt exists, generate from scratch
     if (!filepath && prompt) {
       return generateMultipleFromScratch(req, res);
     }
     
     if (filepath && !fs.existsSync(filepath)) {
-      // If file not found but prompt exists, fall back to generating from scratch
       if (prompt) {
         return generateMultipleFromScratch(req, res);
       }
@@ -304,7 +273,7 @@ const generateMultipleAds = async (req, res) => {
           imageFile,
           userPrompt,
           `Generated Image ${i+1}`,
-          size,  // Use the requested size
+          size,
           quality,
           userId
         ));
@@ -318,7 +287,6 @@ const generateMultipleAds = async (req, res) => {
       result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Failed to generate image' }
     );
     
-    // Deduct credits for successful generations
     if (userId) {
       const successfulCount = processedResults.filter(r => !r.error).length;
       if (successfulCount > 0) {
@@ -332,7 +300,6 @@ const generateMultipleAds = async (req, res) => {
       }
     }
     
-    // Mark the file for cleanup
     markFileForCleanup(filepath, userId);
     
     return res.status(200).json({
@@ -356,7 +323,6 @@ const generateMultipleFromScratch = async (req, res) => {
     
     const requestId = clientRequestId || `${userId || 'anon'}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Credit checks
     if (userId) {
       await ensureUserHasCredits(userId);
       
@@ -380,7 +346,7 @@ const generateMultipleFromScratch = async (req, res) => {
         generationPromises.push(generateImageFromScratch(
           prompt,
           `Generated Image ${i+1}`,
-          size,  // Use the requested size
+          size,
           quality,
           userId
         ));
@@ -394,7 +360,6 @@ const generateMultipleFromScratch = async (req, res) => {
       result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Failed to generate image' }
     );
     
-    // Deduct credits for successful generations
     if (userId) {
       const successfulCount = processedResults.filter(r => !r.error).length;
       if (successfulCount > 0) {
@@ -439,12 +404,10 @@ async function generateImage(imageFile, prompt, title, size, quality, userId = n
     let dbRecord = null;
     let storageUrl = null;
     
-    // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
     if (userId) {
-      // Store in Supabase
       const imageData = await storeImageInSupabase(
         userId, 
         outputFilename, 
@@ -491,12 +454,10 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
     let dbRecord = null;
     let storageUrl = null;
     
-    // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
     if (userId) {
-      // Store in Supabase
       const imageData = await storeImageInSupabase(
         userId, 
         outputFilename, 
@@ -526,13 +487,12 @@ async function generateImageFromScratch(prompt, title, size, quality, userId = n
   }
 }
 
-// Updated helper function to store image in Supabase with additional metadata
+// Store image in Supabase with additional metadata
 async function storeImageInSupabase(userId, filename, base64Image, prompt, size, quality, expiresAt, additionalMetadata = {}) {
   try {
     const imageBuffer = Buffer.from(base64Image, 'base64');
     const storagePath = `${userId}/generated/${filename}`;
     
-    // Upload to storage
     const { error: storageError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(storagePath, imageBuffer, {
@@ -544,12 +504,10 @@ async function storeImageInSupabase(userId, filename, base64Image, prompt, size,
       throw storageError;
     }
     
-    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(storagePath);
     
-    // Combine base metadata with additional metadata
     const metadata = {
       size,
       quality,
@@ -558,7 +516,6 @@ async function storeImageInSupabase(userId, filename, base64Image, prompt, size,
       ...additionalMetadata
     };
     
-    // Save to database
     const { data, error } = await supabase
       .from('generated_images')
       .insert({
@@ -582,7 +539,6 @@ async function storeImageInSupabase(userId, filename, base64Image, prompt, size,
       storageUrl: publicUrl
     };
   } catch (error) {
-    console.error('Error storing image in Supabase:', error);
     return { dbRecord: null, storageUrl: null };
   }
 }
@@ -602,13 +558,11 @@ const getUserImages = async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch user images' });
     }
 
-    // Process images with expiration info
     const processedImages = generatedImagesData.map(img => {
       const now = new Date();
       const expiresAt = new Date(img.expires_at);
       const daysRemaining = Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)));
       
-      // Check for multi-reference metadata
       const isMultiReference = img.metadata?.useMultipleReferences || false;
       const referenceCount = img.metadata?.referenceImagesCount || 1;
       
@@ -652,7 +606,6 @@ const deleteUserImage = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Get the image data
     const { data: imageData, error: getError } = await supabase
       .from('generated_images')
       .select('storage_path')
@@ -664,14 +617,12 @@ const deleteUserImage = async (req, res) => {
       return res.status(404).json({ error: 'Image not found' });
     }
     
-    // Delete from storage if path exists
     if (imageData.storage_path) {
       await supabase.storage
         .from(BUCKET_NAME)
         .remove([imageData.storage_path]);
     }
     
-    // Delete the database record
     const { error: deleteError } = await supabase
       .from('generated_images')
       .delete()
@@ -708,21 +659,18 @@ const getSupabaseImage = async (req, res) => {
       return res.status(404).json({ error: 'Image not found' });
     }
     
-    // Check if image has expired
     const now = new Date();
     const expiresAt = new Date(img.expires_at);
     if (now > expiresAt) {
       return res.status(410).json({ error: 'Image has expired and is no longer available' });
     }
     
-    // If we have base64_image data directly in the DB, use it
     if (img.base64_image) {
       const buffer = Buffer.from(img.base64_image, 'base64');
       res.setHeader('Content-Type', 'image/png');
       return res.send(buffer);
     }
     
-    // Otherwise fetch from storage
     const { data: fileData, error: dlErr } = await supabase
       .storage
       .from(BUCKET_NAME)
@@ -799,13 +747,11 @@ function markFileForCleanup(filepath, userId) {
   }
 }
 
-// Cleanup expired images - can be called from a scheduled job
+// Cleanup expired images
 const cleanupExpiredImages = async () => {
-  console.log('Starting cleanup of expired generated images...');
   const now = new Date().toISOString();
   
   try {
-    // Get expired images
     const { data: expiredImages, error: fetchError } = await supabase
       .from('generated_images')
       .select('id, storage_path')
@@ -819,19 +765,16 @@ const cleanupExpiredImages = async () => {
       return { success: true, deletedCount: 0 };
     }
     
-    // Extract storage paths for deletion
     const storagePaths = expiredImages
       .filter(img => img.storage_path)
       .map(img => img.storage_path);
     
-    // Delete from storage if there are any paths
     if (storagePaths.length > 0) {
       await supabase.storage
         .from(BUCKET_NAME)
         .remove(storagePaths);
     }
     
-    // Delete from database
     const expiredIds = expiredImages.map(img => img.id);
     await supabase
       .from('generated_images')
@@ -863,21 +806,18 @@ const cleanupTemporaryFiles = () => {
     
     files.forEach(file => {
       const filePath = path.join(uploadsDir, file);
-      // Skip directories and metadata files
       if (fs.statSync(filePath).isDirectory() || file.endsWith('.meta')) {
         return;
       }
       
       const metaPath = path.join(uploadsDir, `${file}.meta`);
       
-      // Check if this is a temporary file
       if (fs.existsSync(metaPath)) {
         try {
           const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
           
           if ((metadata.markedForCleanup && (now - metadata.lastUsed > RECENT_USE_TTL)) || 
               (metadata.isTemporary && (now - metadata.uploadTime > TEMP_FILE_TTL))) {
-            // Delete the file and its metadata
             fs.unlinkSync(filePath);
             fs.unlinkSync(metaPath);
           }

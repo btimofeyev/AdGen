@@ -1,7 +1,6 @@
-// Updated ImageGrid with external selection state
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Copy, Trash2, Clock, Eye, ImageIcon, Check, CheckSquare } from "lucide-react";
+import { Download, Copy, Trash2, Clock, Eye, ImageIcon, CheckSquare } from "lucide-react";
 
 const ImageGrid = ({ 
   images, 
@@ -9,13 +8,12 @@ const ImageGrid = ({
   onCopy, 
   onModalOpen, 
   onDelete,
-  selectedImages = {}, // Now passed from parent
-  setSelectedImages = () => {} // Now passed from parent
+  selectedImages = {}, 
+  setSelectedImages = () => {} 
 }) => {
   const [deletingId, setDeletingId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
   
-  // Animation variants for container
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -26,7 +24,6 @@ const ImageGrid = ({
     }
   };
 
-  // Animation variants for grid items
   const itemVariants = {
     hidden: { opacity: 0, y: 20, scale: 0.9 },
     visible: { 
@@ -47,37 +44,26 @@ const ImageGrid = ({
     }
   };
 
-  // Toggle image selection
   const toggleImageSelection = (imageId, e) => {
-    e.stopPropagation(); // Prevent opening the modal
+    e.stopPropagation();
     setSelectedImages(prev => ({
       ...prev,
       [imageId]: !prev[imageId]
     }));
   };
 
-  // Handle delete with confirmation for a single image
   const handleDelete = (image) => {
-    console.log('Delete button clicked for image:', image.id);
-    
     if (deletingId === image.id) {
-      // Confirm delete - log action and call parent handler
-      console.log('Confirming delete for image:', image.id);
       onDelete(image.id);
       setDeletingId(null);
     } else {
-      // Set this image as deleting, asking for confirmation
-      console.log('First click on delete for image:', image.id);
       setDeletingId(image.id);
-      
-      // Auto-reset after 3 seconds
       setTimeout(() => {
         setDeletingId(null);
       }, 3000);
     }
   };
 
-  // Get expiration status styling - Smaller badge
   const getExpirationStyle = (daysRemaining) => {
     if (daysRemaining <= 1) {
       return 'bg-pastel-pink text-white border border-pastel-pink/40'; 
@@ -88,7 +74,6 @@ const ImageGrid = ({
     }
   };
 
-  // If there are no images, show a styled placeholder message
   if (!images || images.length === 0) {
     return (
       <motion.div 
@@ -137,7 +122,6 @@ const ImageGrid = ({
                 }`}
                 whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
               >
-                {/* Clickable image - with fixed aspect ratio container */}
                 <div 
                   className="relative aspect-square overflow-hidden cursor-pointer"
                   onClick={() => {
@@ -154,14 +138,12 @@ const ImageGrid = ({
                     </div>
                   ) : (
                     <>
-                      {/* Image with object-fit: cover to maintain aspect ratio while filling container */}
                       <img 
                         src={image.base64Image} 
                         alt={`Generated image ${index + 1}`}
                         className="w-full h-full object-cover object-center transition-transform duration-300"
                       />
                       
-                      {/* Overlay on hover */}
                       <motion.div 
                         className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                         initial={false}
@@ -186,7 +168,6 @@ const ImageGrid = ({
                         </div>
                       </motion.div>
                       
-                      {/* SMALLER Expiration badge */}
                       {image.daysRemaining !== undefined && (
                         <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium flex items-center shadow-sm backdrop-blur-sm ${getExpirationStyle(image.daysRemaining)}`}>
                           <Clock size={10} className="mr-1" />
@@ -197,7 +178,6 @@ const ImageGrid = ({
                   )}
                 </div>
                 
-                {/* Image details section */}
                 <div className="px-4 py-3 border-t border-border">
                   <h3 className="text-sm font-medium text-charcoal dark:text-white truncate">
                     {image.prompt || "Generated Image"}
@@ -207,7 +187,6 @@ const ImageGrid = ({
                   </p>
                 </div>
                 
-                {/* Action buttons at the bottom - now includes selection */}
                 {!image.error && (
                   <div className="flex justify-between p-3 pt-0 gap-2">
                     <div className="flex space-x-1">
@@ -231,7 +210,6 @@ const ImageGrid = ({
                         <Copy size={16} className="text-charcoal/70 dark:text-white hover:text-charcoal dark:hover:text-pastel-blue" />
                       </motion.button>
                       
-                      {/* New selection button in the action row */}
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
@@ -243,11 +221,7 @@ const ImageGrid = ({
                         }`}
                         title="Select"
                       >
-                        {selectedImages[image.id] ? (
-                          <CheckSquare size={16} className="text-white" />
-                        ) : (
-                          <CheckSquare size={16} className="text-charcoal/70 dark:text-white hover:text-charcoal dark:hover:text-pastel-blue" />
-                        )}
+                        <CheckSquare size={16} className={selectedImages[image.id] ? "text-white" : "text-charcoal/70 dark:text-white hover:text-charcoal dark:hover:text-pastel-blue"} />
                       </motion.button>
                     </div>
 

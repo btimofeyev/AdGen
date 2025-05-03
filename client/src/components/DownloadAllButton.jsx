@@ -1,4 +1,3 @@
-// client/src/components/DownloadAllButton.jsx
 import React, { useState } from 'react';
 import { Download, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
@@ -17,25 +16,16 @@ const DownloadAllButton = ({ images }) => {
       const zip = new JSZip();
       const imageFolder = zip.folder("generated-images");
       
-      // Get only valid images
       const validImages = images.filter(img => !img.error && img.base64Image);
       
-      // Add each image to the zip file
       for (let i = 0; i < validImages.length; i++) {
         const image = validImages[i];
-        
-        // Extract base64 data (remove the data:image/png;base64, prefix)
         const base64Data = image.base64Image.split(',')[1];
-        
-        // Add to zip with a descriptive filename
         const fileName = `image-${i+1}-${new Date(image.created_at).toISOString().slice(0,10)}.png`;
         imageFolder.file(fileName, base64Data, {base64: true});
-        
-        // Update progress
         setProgress(Math.round(((i + 1) / validImages.length) * 100));
       }
       
-      // Generate readme explaining expiration
       const readme = 
 `# Generated Images
 This archive contains images generated with PostoraAI.
@@ -50,7 +40,6 @@ Enjoy your images!`;
 
       imageFolder.file("README.txt", readme);
       
-      // Generate the zip file
       const content = await zip.generateAsync({ 
         type: 'blob',
         compression: "DEFLATE",
@@ -59,7 +48,6 @@ Enjoy your images!`;
         }
       });
       
-      // Save the zip file
       saveAs(content, `all-generated-images-${new Date().toISOString().slice(0,10)}.zip`);
     } catch (error) {
       console.error('Error downloading all images:', error);
@@ -70,17 +58,14 @@ Enjoy your images!`;
     }
   };
   
-  // Don't render the button if there are no images
   if (!images || images.length === 0) return null;
   
-  // Count valid images
   const validImageCount = images.filter(img => !img.error && img.base64Image).length;
   
   if (validImageCount === 0) return null;
   
   return (
     <div>
-      {/* Show information about imminent expiration */}
       {images.some(img => img.daysRemaining && img.daysRemaining <= 2) && (
         <div className="mb-2 p-2 rounded-lg bg-pastel-pink/10 text-xs text-pastel-pink flex items-start gap-1.5">
           <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />

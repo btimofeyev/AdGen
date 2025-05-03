@@ -1,8 +1,6 @@
-// client/src/components/SubscriptionForm.jsx
 import React, { useState } from 'react';
 import { useStripe } from '@stripe/react-stripe-js';
 import { useAuth } from '../contexts/AuthContext';
-import { Button } from './ui/button';
 import { API_URL } from '../config';
 import supabase from '../lib/supabase';
 
@@ -24,7 +22,6 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
       setError(null);
       setDebugInfo(null);
       
-      // Get auth token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
         throw new Error(`Session error: ${sessionError.message}`);
@@ -34,15 +31,9 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
         throw new Error('No active session - please log in again');
       }
       
-      // Log payment attempt for debugging
-      console.log(`Payment attempt initiated: Plan ${plan.id} (${plan.stripePriceId}) for $${plan.price}`);
-      
-      // Get the success and cancel URLs based on current location
       const successUrl = `${window.location.origin}/create?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = window.location.href;
       
-      // Create checkout session
-      console.log('Creating checkout session...');
       const response = await fetch(`${API_URL}/subscriptions/create-checkout-session`, {
         method: 'POST',
         headers: {
@@ -57,7 +48,6 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
         }),
       });
       
-      // Check for server errors
       if (!response.ok) {
         let errorMessage = 'Failed to create checkout session';
         let errorDetails = {};
@@ -74,29 +64,21 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
           };
         }
         
-        console.error('Server error details:', errorDetails);
         setDebugInfo(errorDetails);
         throw new Error(errorMessage);
       }
       
-      const responseData = await response.json();
-      const { sessionId } = responseData;
+      const { sessionId } = await response.json();
       
       if (!sessionId) {
         throw new Error('No session ID returned from server');
       }
       
-      console.log('Redirecting to Stripe checkout...');
-      
-      // Redirect to Stripe Checkout
       const { error: redirectError } = await stripe.redirectToCheckout({
         sessionId
       });
       
       if (redirectError) {
-        console.error('Stripe redirect error:', redirectError);
-        
-        // Get detailed error information
         const detailedError = {
           type: redirectError.type,
           code: redirectError.code,
@@ -110,12 +92,8 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
         throw redirectError;
       }
     } catch (err) {
-      console.error('Checkout error:', err);
-      
-      // Format the error message for display
       let errorMessage = err.message || 'An unexpected error occurred';
       
-      // Special handling for common Stripe errors
       if (err.type === 'card_error') {
         errorMessage = `Card error: ${err.message}`;
       } else if (err.type === 'validation_error') {
@@ -168,8 +146,3 @@ const SubscriptionForm = ({ plan, onSuccess, onError }) => {
 };
 
 export default SubscriptionForm;
-
-
-
-
-
