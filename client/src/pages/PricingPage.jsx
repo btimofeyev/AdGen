@@ -119,7 +119,7 @@ const PricingPage = () => {
         credits: 15,
         popular: false,
         buttonText: 'Buy Pack',
-        stripePriceId: 'price_1RIzGMDNIr7FzuSF8hVxsDz1',
+        stripePriceId: 'price_1RLSENDII9A9349oeB2FplDR',
         
         discount: 33  // 33% off
       },
@@ -134,7 +134,7 @@ const PricingPage = () => {
         credits: 50,
         popular: false,
         buttonText: 'Start Monthly',
-        stripePriceId: 'price_1RIzJHDNIr7FzuSFi90pGJBM',
+        stripePriceId: 'price_1RLSEnDII9A9349oOARzi2yc',
         discount: 33  // 33% off
       },
       {
@@ -148,7 +148,7 @@ const PricingPage = () => {
         credits: 200,
         popular: true,
         buttonText: 'Upgrade to Pro',
-        stripePriceId: 'price_1RIzLQDNIr7FzuSFJ57hDFyF',
+        stripePriceId: 'price_1RLSFQDII9A9349ogzSxxdwJ',
         discount: 28  // 28% off
       },
       {
@@ -162,7 +162,7 @@ const PricingPage = () => {
         credits: 500,
         popular: false,
         buttonText: 'Go Premium',
-        stripePriceId: 'price_1RIzMMDNIr7FzuSFNrGFFH19',
+        stripePriceId: 'price_1RLSFoDII9A9349oLGGnLIQV',
         discount: 23  // 23% off
       }
     ];
