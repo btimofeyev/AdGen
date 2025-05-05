@@ -7,6 +7,7 @@ import PricingPage from './pages/PricingPage';
 import AccountPage from './pages/AccountPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import ExamplesPage from './pages/ExamplesPage'; // Import the new Examples page
 
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
@@ -47,6 +48,7 @@ function AppRoutes() {
           </Route>
         
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/examples" element={<ExamplesPage />} /> {/* Add new Examples route */}
           <Route path="/login" element={<LandingPage />} />
           <Route path="/signup" element={<LandingPage />} />
           <Route path="/forgot-password" element={<LandingPage />} />

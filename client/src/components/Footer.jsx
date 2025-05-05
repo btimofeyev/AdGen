@@ -1,4 +1,4 @@
-// Updated Footer Component with Legal Links
+// Updated Footer Component with Consistent Links
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles } from "lucide-react";
@@ -16,14 +16,14 @@ function Footer() {
         </div>
 
         <div className="flex flex-wrap gap-6 justify-center">
-          <Link to="/features" className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
-            Features
+          <Link to="/examples" className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
+            Examples
           </Link>
           <Link to="/pricing" className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
             Pricing
           </Link>
-          <Link to="/examples" className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
-            Examples
+          <Link to="/create" className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
+            Create
           </Link>
           <Link to="/support" className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-blue transition-colors">
             Support

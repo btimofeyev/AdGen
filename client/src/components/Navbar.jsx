@@ -1,7 +1,7 @@
 // client/src/components/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Sparkles, LogOut, User, Menu, X, Plus } from "lucide-react";
+import { Sparkles, LogOut, User, Menu, X, Plus, ImageIcon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -52,6 +52,20 @@ function Navbar() {
 
       {/* Desktop Nav */}
       <div className="hidden md:flex gap-4 items-center">
+        <Link 
+          to="/examples" 
+          className="text-charcoal dark:text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
+        >
+          Examples
+        </Link>
+        
+        <Link 
+          to="/pricing" 
+          className="text-charcoal dark:text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
+        >
+          Pricing
+        </Link>
+        
         {user ? (
           <>
             {/* User is logged in: Just show Create button and optional logout */}
@@ -78,13 +92,6 @@ function Navbar() {
         ) : (
           <>
             {/* User is not logged in: Just Pricing and Login */}
-            <Link
-              to="/pricing"
-              className="text-white hover:text-pastel-blue transition text-sm sm:text-base px-2"
-            >
-              Pricing
-            </Link>
-            
             <Link
               to="/login"
               className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-lg transition text-sm sm:text-base"
@@ -158,6 +165,24 @@ function Navbar() {
                 <span className="text-2xl font-bold">PostoraAI</span>
               </Link>
               <nav className="flex flex-col gap-4 mt-8">
+                {/* Added Examples link to mobile menu */}
+                <Link
+                  to="/examples"
+                  className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2 flex items-center gap-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <ImageIcon size={18} className="text-pastel-blue" />
+                  Examples
+                </Link>
+                
+                <Link
+                  to="/pricing"
+                  className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2 flex items-center gap-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <span>Pricing</span>
+                </Link>
+                
                 {user ? (
                   <>
                     {/* User is logged in - Show Create button */}
@@ -169,13 +194,6 @@ function Navbar() {
                     >
                       <Plus className="h-6 w-6 mr-2" />
                       <span>Create</span>
-                    </Link>
-                    <Link
-                      to="/pricing"
-                      className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Pricing
                     </Link>
                     <button
                       onClick={() => {
@@ -195,14 +213,7 @@ function Navbar() {
                   </>
                 ) : (
                   <>
-                    {/* Logged out - Show just Pricing and Login */}
-                    <Link
-                      to="/pricing"
-                      className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Pricing
-                    </Link>
+                    {/* Logged out - Show just Login */}
                     <Link
                       to="/login"
                       className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-full px-6 py-4 shadow-xl transition text-lg mb-2 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
