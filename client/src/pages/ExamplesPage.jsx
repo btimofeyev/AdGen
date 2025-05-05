@@ -17,7 +17,7 @@ const ExamplesPage = () => {
     { id: 'gifts', name: 'Gifts & Accessories', icon: <Gift className="h-4 w-4" /> },
   ];
 
-  // Example showcases - updated with well-known products
+  // Example showcases - Updated with YETI tumbler example
   const examples = [
     {
       id: 1,
@@ -26,105 +26,83 @@ const ExamplesPage = () => {
       description: 'Transformed a standard product shot into a lifestyle image showing the AirPods in a premium, active context.',
       before: '/examples/airpods-before.jpg',
       after: '/examples/airpods-after.png',
-      prompt: 'Apple AirPods on a modern desk with MacBook, coffee cup, and stylish notebook, soft window lighting, premium lifestyle setting',
+      prompt: 'A person holds an Apple AirPods Pro case open in their left hand aboard a subway at night, illuminated by warm city lights outside the windows. The tagline, "Hear What You’ve Been Missing," appears at the top in clean, modern typography, while the glossy white earbuds and charging case stand out in crisp focus against a soft, blurred background.',
       isKnownBrand: true,
       brandName: 'Apple'
     },
     {
       id: 2,
-      category: 'electronics',
-      title: 'Sony Wireless Headphones',
-      description: 'Enhanced the product visualization by placing it in a music studio environment that appeals to audio enthusiasts.',
-      before: '/examples/headphones-before.jpg',
-      after: '/examples/headphones-after.jpg',
-      prompt: 'Sony wireless headphones in a professional music studio with instruments, mixing console, and ambient lighting, audio professional environment',
-      isKnownBrand: true,
-      brandName: 'Sony'
+      category: 'homegoods',
+      title: 'Handmade Ceramic Mug',
+      description: 'Transformed a simple product shot into a cozy lifestyle scene that tells a story and creates emotional connection.',
+      before: '/examples/mug-before.png',
+      after: '/examples/mug-after.png',
+      prompt: 'Put this product on a rustic wooden table with a book nearby, morning sunlight streaming in, cozy atmosphere',
     },
     {
       id: 3,
       category: 'fashion',
-      title: 'Nike Running Shoes',
-      description: 'Transformed a basic product photo into an action-oriented scene that showcases the shoes in their intended environment.',
-      before: '/examples/nike-shoes-before.jpg',
-      after: '/examples/nike-shoes-after.jpg',
-      prompt: 'Nike running shoes on an outdoor trail with morning light, dynamic angle, athletic lifestyle, action-oriented product shot',
-      isKnownBrand: true,
-      brandName: 'Nike'
+      title: 'Canvas Travel Backpack',
+      description: 'Transformed a plain product photo into a storytelling lifestyle scene that evokes adventure, travel, and authenticity.',
+      before: '/examples/canvasbackpack-before.png',
+      after: '/examples/canvasbackpack-after.png',
+      prompt: 'A rugged canvas backpack leaning against a weathered wooden bench in a sun-dappled park. A journal peeks out of the side pocket, with a pair of sunglasses resting nearby. Autumn leaves scattered on the ground, warm golden hour light filtering through trees, evoking a laid-back traveler or urban explorer vibe.',
+      isKnownBrand: false
     },
     {
       id: 4,
       category: 'fashion',
-      title: 'Handcrafted Leather Wallet',
-      description: 'Elevated a simple product photo to showcase craftsmanship and quality in a premium context.',
-      before: '/examples/wallet-before.jpg',
-      after: '/examples/wallet-after.jpg',
-      prompt: 'Artisan leather wallet on dark wooden surface with watch and minimal accessories, warm lighting, luxury menswear aesthetic',
+      title: 'Retro Sunglasses',
+      description: 'Turned a basic accessory photo into a vibrant lifestyle ad ready for social media, evoking summer, style, and relaxation.',
+      before: '/examples/sunglasses-before.png',
+      after: '/examples/sunglasses-after.png',
+      prompt: 'Stylish retro sunglasses resting on a picnic blanket with a cold drink beside them, soft sunlight creating shadows. In the background, a beach bag and straw hat hint at summer fun. Overlay text reads: "Hello, Weekend." — perfect for a fashion or summer ad.',
       isKnownBrand: false
     },
     {
       id: 5,
       category: 'food',
-      title: 'Starbucks Coffee',
-      description: 'Created a cozy, inviting scene that evokes the coffee shop experience right from a packaged product.',
-      before: '/examples/starbucks-before.jpg',
-      after: '/examples/starbucks-after.jpg',
-      prompt: 'Starbucks coffee bag with freshly brewed coffee in cup nearby, coffee beans scattered, wooden table, warm morning light, coffee shop atmosphere',
+      title: 'YETI Tumbler',
+      description: 'Placed the popular insulated tumbler in an outdoor adventure setting that highlights its durability and lifestyle appeal.',
+      before: '/examples/yeti-before.avif',
+      after: '/examples/yeti-after.png',
+      prompt: 'Put this product on rocky outcrop with mountain vista background, morning campfire nearby, adventure lifestyle, rugged outdoor setting with sunrise light',
       isKnownBrand: true,
-      brandName: 'Starbucks'
+      brandName: 'YETI'
     },
     {
       id: 6,
       category: 'food',
-      title: 'Artisanal Olive Oil',
-      description: 'Transformed a standalone product into a Mediterranean culinary scene that tells a story about heritage and quality.',
-      before: '/examples/olive-oil-before.jpg',
-      after: '/examples/olive-oil-after.jpg',
-      prompt: 'Bottle of premium olive oil with fresh bread, tomatoes, and herbs on rustic wooden table, Mediterranean setting, golden afternoon light',
-      isKnownBrand: false
+      title: 'San Pellegrino Sparkling Water',
+      description: 'Transformed a basic product image into a refreshing lifestyle scene perfect for social posts or beverage marketing.',
+      before: '/examples/water-before.png',
+      after: '/examples/water-after.png',
+      prompt: 'A chilled bottle of San Pellegrino sparkling water on a café-style table with a glass of ice and lemon slice, blurred outdoor background, soft sunlight, vibrant and refreshing lifestyle ad.',
+      isKnownBrand: true,
+      brandName: 'San Pellegrino'
     },
+    
     {
       id: 7,
-      category: 'homegoods',
-      title: 'IKEA POÄNG Chair',
-      description: 'Placed the iconic chair in a complete living room setup to help shoppers visualize it in their own homes.',
-      before: '/examples/ikea-chair-before.jpg',
-      after: '/examples/ikea-chair-after.jpg',
-      prompt: 'IKEA POÄNG chair in a Scandinavian living room with natural light, houseplants, bookshelf, and modern decor elements',
-      isKnownBrand: true,
-      brandName: 'IKEA'
+      category: 'electronics',
+      title: 'Wooden Bluetooth Speaker',
+      description: 'Designed a polished lifestyle ad-style image perfect for social media and product marketing — blending minimalism with powerful messaging.',
+      before: '/examples/speaker-before.png',
+      after: '/examples/speaker-after.png',
+      prompt: 'A sleek wooden Bluetooth speaker set on a minimalist shelf with sunlight casting dramatic shadows across the wall. Above the speaker, bold text overlay reads: "Big Sound. Small Space." Nearby, a phone shows a playlist on screen. Modern apartment setting, clean aesthetic, perfect for a Facebook ad or product post.',
+      isKnownBrand: false
     },
     {
       id: 8,
-      category: 'homegoods',
-      title: 'Ceramic Plant Pot Collection',
-      description: 'Transformed basic product shots into a styled indoor garden scene that inspires home decorators.',
-      before: '/examples/plant-pots-before.jpg',
-      after: '/examples/plant-pots-after.jpg',
-      prompt: 'Collection of modern ceramic plant pots with various succulents and indoor plants, arranged on wooden shelving, bohemian interior design',
+      category: 'gifts',
+      title: 'Artisan Bath Gift Set',
+      description: 'Created a luxurious lifestyle scene that highlights this elegant bath set as the perfect self-care or gift option.',
+      before: '/examples/bathsetbefore.png',
+      after: '/examples/bathset-after.png',
+      prompt: 'The bath set displayed beside a bathtub on a wooden tray with soft towels, candles, and eucalyptus nearby. Warm, relaxing lighting in a spa-inspired setting — perfect for a self-care or gift ad.',
       isKnownBrand: false
     },
-    {
-      id: 9,
-      category: 'gifts',
-      title: 'Lush Bath Bombs',
-      description: 'Created a spa-like setting that elevates these colorful products and suggests self-care and relaxation.',
-      before: '/examples/lush-before.jpg',
-      after: '/examples/lush-after.jpg',
-      prompt: 'Lush bath bombs arranged near a luxurious bathtub with candles, towels, and eucalyptus sprigs, spa atmosphere, soft mood lighting',
-      isKnownBrand: true,
-      brandName: 'Lush'
-    },
-    {
-      id: 10,
-      category: 'gifts',
-      title: 'Handmade Scented Candles',
-      description: 'Created a seasonal setting that positions these candles as perfect gifts for any occasion.',
-      before: '/examples/candles-before.jpg',
-      after: '/examples/candles-after.jpg',
-      prompt: 'Artisanal scented candles arranged with seasonal decorations and gift wrapping elements, warm glowing light, cozy atmosphere',
-      isKnownBrand: false
-    }
+    
   ];
 
   // Filter examples based on selected category
