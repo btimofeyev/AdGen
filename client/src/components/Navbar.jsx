@@ -1,7 +1,7 @@
-// client/src/components/Navbar.jsx
+// Updated Navbar.jsx with Social Media link
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Sparkles, LogOut, User, Menu, X, Plus, ImageIcon } from "lucide-react";
+import { Sparkles, LogOut, User, Menu, X, Plus, ImageIcon, Calendar, Zap } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -68,30 +68,46 @@ function Navbar() {
         
         {user ? (
           <>
-            {/* User is logged in: Just show Create button and optional logout */}
-            <Link
-              to="/create"
-              className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-lg transition text-sm sm:text-base"
-            >
-              Create
-            </Link>
+            {/* User is logged in */}
+            <div className="flex gap-2">
+              <Link
+                to="/create"
+                className="flex items-center gap-2 bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-lg transition text-sm sm:text-base"
+              >
+                <ImageIcon size={18} />
+                <span>Image Studio</span>
+              </Link>
+              
+              <Link
+                to="/social"
+                className="flex items-center gap-2 bg-pastel-blue/20 hover:bg-pastel-blue/30 text-pastel-blue font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-sm transition text-sm sm:text-base border border-pastel-blue/30"
+              >
+                <Calendar size={18} />
+                <span>Social Posts</span>
+                <span className="text-xs bg-pastel-blue/30 px-2 py-0.5 rounded-full">New</span>
+              </Link>
+            </div>
             
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className={`bg-white border border-light-gray/40 text-charcoal/70 font-medium rounded-full px-4 sm:px-6 py-2 sm:py-3 transition hover:bg-soft-white flex items-center gap-2 text-sm sm:text-base dark:bg-pastel-blue dark:text-[#181A20] dark:border-pastel-blue dark:hover:bg-pastel-blue/80 ${
-                isLoggingOut ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">
-                {isLoggingOut ? "Logging out..." : "Log Out"}
-              </span>
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/account"
+                className="p-2 rounded-full bg-white/60 dark:bg-[#23262F]/60 hover:bg-pastel-blue/10 transition"
+              >
+                <User size={20} className="text-charcoal/70 dark:text-white/70" />
+              </Link>
+              
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="p-2 rounded-full bg-white/60 dark:bg-[#23262F]/60 hover:bg-pastel-pink/10 transition"
+              >
+                <LogOut size={20} className="text-charcoal/70 dark:text-white/70" />
+              </button>
+            </div>
           </>
         ) : (
           <>
-            {/* User is not logged in: Just Pricing and Login */}
+            {/* User is not logged in */}
             <Link
               to="/login"
               className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 sm:px-6 py-2 sm:py-3 shadow-lg transition text-sm sm:text-base"
@@ -112,13 +128,22 @@ function Navbar() {
           <Menu className="h-7 w-7 text-pastel-blue" />
         </button>
         {user ? (
-          <Link
-            to="/create"
-            className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal rounded-full p-3 shadow-lg transition flex items-center justify-center ml-1"
-            aria-label="Create"
-          >
-            <Plus className="h-6 w-6" />
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              to="/create"
+              className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal rounded-full p-3 shadow-lg transition flex items-center justify-center"
+              aria-label="Create"
+            >
+              <ImageIcon className="h-5 w-5" />
+            </Link>
+            <Link
+              to="/social"
+              className="bg-pastel-blue/20 border border-pastel-blue/30 text-pastel-blue rounded-full p-3 shadow-sm transition flex items-center justify-center"
+              aria-label="Social"
+            >
+              <Calendar className="h-5 w-5" />
+            </Link>
+          </div>
         ) : (
           <Link
             to="/login"
@@ -180,32 +205,52 @@ function Navbar() {
                   className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2 flex items-center gap-2"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span>Pricing</span>
+                  <Zap size={18} className="text-pastel-blue" />
+                  Pricing
                 </Link>
                 
                 {user ? (
                   <>
-                    {/* User is logged in - Show Create button */}
+                    {/* User is logged in - Show app navigation */}
                     <Link
                       to="/create"
-                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-full px-4 py-3 shadow-lg transition text-base mb-2 flex items-center justify-center"
+                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-bold rounded-lg px-4 py-3 shadow-lg transition text-base mb-2 flex items-center gap-2"
                       onClick={() => setMobileMenuOpen(false)}
                       aria-label="Create"
                     >
-                      <Plus className="h-6 w-6 mr-2" />
-                      <span>Create</span>
+                      <ImageIcon size={18} />
+                      <span>Image Studio</span>
                     </Link>
+                    
+                    <Link
+                      to="/social"
+                      className="bg-pastel-blue/20 hover:bg-pastel-blue/30 text-pastel-blue font-bold rounded-lg px-4 py-3 shadow-sm transition text-base mb-2 flex items-center gap-2 border border-pastel-blue/30"
+                      onClick={() => setMobileMenuOpen(false)}
+                      aria-label="Social"
+                    >
+                      <Calendar size={18} />
+                      <span>Social Posts</span>
+                      <span className="text-xs bg-pastel-blue/30 px-2 py-0.5 rounded-full">New</span>
+                    </Link>
+                    
+                    <Link
+                      to="/account"
+                      className="text-charcoal dark:text-white hover:text-pastel-blue transition text-base mb-2 flex items-center gap-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <User size={18} className="text-pastel-blue" />
+                      <span>Account</span>
+                    </Link>
+                    
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);
                         handleLogout();
                       }}
                       disabled={isLoggingOut}
-                      className={`bg-white border border-light-gray/40 text-charcoal/70 font-medium rounded-full px-4 py-3 transition hover:bg-soft-white flex items-center gap-2 text-base dark:bg-pastel-blue dark:text-[#181A20] dark:border-pastel-blue dark:hover:bg-pastel-blue/80 ${
-                        isLoggingOut ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
+                      className="text-charcoal/70 dark:text-gray-300 hover:text-pastel-pink transition text-base mb-2 flex items-center gap-2"
                     >
-                      <LogOut size={16} />
+                      <LogOut size={18} className="text-pastel-pink" />
                       <span>
                         {isLoggingOut ? "Logging out..." : "Log Out"}
                       </span>
@@ -216,10 +261,18 @@ function Navbar() {
                     {/* Logged out - Show just Login */}
                     <Link
                       to="/login"
-                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-full px-6 py-4 shadow-xl transition text-lg mb-2 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
+                      className="bg-pastel-blue hover:bg-pastel-blue/80 text-charcoal font-extrabold rounded-lg px-6 py-4 shadow-xl transition text-lg mb-2 border-2 border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Log In
+                    </Link>
+                    
+                    <Link
+                      to="/signup"
+                      className="bg-white hover:bg-soft-white text-charcoal font-bold rounded-lg px-6 py-4 shadow-sm transition text-lg mb-2 border border-pastel-blue/30"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign Up
                     </Link>
                   </>
                 )}

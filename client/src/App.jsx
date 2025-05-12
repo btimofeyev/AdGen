@@ -1,4 +1,4 @@
-// client/src/App.jsx
+// Updated App.jsx with Simplified Social Media Feature
 import React from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
@@ -7,7 +7,10 @@ import PricingPage from './pages/PricingPage';
 import AccountPage from './pages/AccountPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
-import ExamplesPage from './pages/ExamplesPage'; // Import the new Examples page
+import ExamplesPage from './pages/ExamplesPage';
+// We'll create this component directly where the App.jsx file is
+// instead of using an import from a separate file
+import SimpleSocialMediaPage from './components/SocialPostGenerator'; // Using our component directly
 
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
@@ -22,8 +25,10 @@ function AppRoutes() {
   const navigate = useNavigate();
   const background = location.state?.background;
   
-  // Check if we're on the create page or account page
-  const isAppPage = location.pathname === '/create' || location.pathname === '/account';
+  // Check if we're on the create page, account page, or social page
+  const isAppPage = location.pathname === '/create' || 
+                   location.pathname === '/account' || 
+                   location.pathname === '/social';
 
   // Check if we're on a legal page
   const isLegalPage = location.pathname === '/terms' || location.pathname === '/privacy';
@@ -34,21 +39,22 @@ function AppRoutes() {
 
   return (
     <>
-      {/* Only render Navbar if not on the create or account page */}
+      {/* Only render Navbar if not on the app pages */}
       {!isAppPage && <Navbar />}
       
       <div className={`flex-grow ${!isAppPage ? 'min-h-screen' : ''}`}>
         <Routes location={background || location}>
           <Route path="/" element={<LandingPage />} />
           
-          {/* Protected route */}
+          {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/create" element={<AdCreator />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/social" element={<SimpleSocialMediaPage />} /> {/* Use simplified component */}
           </Route>
         
           <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/examples" element={<ExamplesPage />} /> {/* Add new Examples route */}
+          <Route path="/examples" element={<ExamplesPage />} />
           <Route path="/login" element={<LandingPage />} />
           <Route path="/signup" element={<LandingPage />} />
           <Route path="/forgot-password" element={<LandingPage />} />

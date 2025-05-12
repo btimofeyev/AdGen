@@ -1,4 +1,5 @@
-// server/server.js
+// Update to server.js to include social routes
+// server/server.js (updated)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -7,6 +8,7 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const imageRoutes = require("./routes/imageRoutes");
 const userRoutes = require("./routes/userRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
+const socialRoutes = require("./routes/socialRoutes"); // New import
 const cron = require('node-cron');
 const { cleanupExpiredImages, cleanupTemporaryFiles } = require('./controllers/imageController');
 const { cleanupOrphanedUserStorage } = require('./utils/storageCleanup');
@@ -29,6 +31,7 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api", imageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/social", socialRoutes); // New route
 
 // Schedule regular cleanup jobs
 cron.schedule('0 3 * * *', async () => {
