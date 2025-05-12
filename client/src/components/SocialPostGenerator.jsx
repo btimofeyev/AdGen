@@ -1,7 +1,9 @@
 // client/src/components/SocialPostGenerator.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, Copy, Send, ArrowRight, Check, Edit, Trash2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_URL } from '../config';
+import supabase from '../lib/supabase';
 
 // Theme options for post generation
 const THEMES = [
@@ -17,58 +19,6 @@ const PLATFORMS = [
   { id: 'facebook', name: 'Facebook', color: '#1877F2' }
 ];
 
-// Demo post templates to use instead of API calls
-const POST_TEMPLATES = {
-  product_promotion: [
-    {
-      title: "Showcase Your Product",
-      content: "✨ Introducing our newest product! Perfect for [benefit]. Check it out online or in-store today. #NewProduct #MustHave",
-      imagePrompt: "Product on a clean background with soft lighting highlighting its features, professional product photography style"
-    },
-    {
-      title: "Product In Action",
-      content: "See how our [product] can transform your experience! Designed for [target audience], this is the solution you've been waiting for. #ProductDemo #Innovation",
-      imagePrompt: "Person using product in natural setting, lifestyle photography, natural lighting, focus on user experience"
-    }
-  ],
-  sale_announcement: [
-    {
-      title: "Limited Time Offer",
-      content: "🔥 SALE ALERT! Take [X]% off all [products] this week only! Shop now before these deals are gone. #Sale #LimitedTimeOffer",
-      imagePrompt: "Product with sale tag or discount percentage, bright colors, attention-grabbing design, promotional style"
-    },
-    {
-      title: "Weekend Special",
-      content: "Weekend special! Buy one, get one 50% off on all [products]. In-store and online, this Saturday and Sunday only! #WeekendSale #ShopNow",
-      imagePrompt: "Products arranged with promotional text overlay, weekend theme, vibrant and inviting display"
-    }
-  ],
-  holiday_special: [
-    {
-      title: "Holiday Gift Guide",
-      content: "🎁 Finding the perfect gift? Our [product] is ideal for [recipient]! Order by [date] for guaranteed holiday delivery. #GiftGuide #HolidayShopping",
-      imagePrompt: "Product wrapped as gift or with festive decorations, holiday theme, warm and inviting holiday setting"
-    },
-    {
-      title: "Season's Greetings",
-      content: "Wishing you joy this season! Celebrate with our special holiday collection. Use code HOLIDAY for 15% off your purchase. #HolidayJoy #SeasonalSavings",
-      imagePrompt: "Product in festive holiday setting with seasonal decorations, warm lighting, cheerful atmosphere"
-    }
-  ],
-  tips_and_tricks: [
-    {
-      title: "How To Use Our Product",
-      content: "Did you know you can use [product] for [unexpected use]? Here's a quick tip to get the most out of your purchase! #ProductTips #HowTo",
-      imagePrompt: "Step-by-step demonstration of product use, instructional style, clear visualization of the process"
-    },
-    {
-      title: "Customer Tip Tuesday",
-      content: "✨ TIP TUESDAY ✨ Get the most from your [product] by [tip]. What's your favorite way to use it? Share in the comments! #TipTuesday #CustomerTips",
-      imagePrompt: "Before and after demonstration of product benefit, split image showing results, clear visual instruction"
-    }
-  ]
-};
-
 /**
  * Social Post Generator Component
  */
@@ -77,6 +27,7 @@ const SocialPostGenerator = () => {
   const [customTheme, setCustomTheme] = useState('');
   const [generatedPosts, setGeneratedPosts] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState({
     instagram: true,
     facebook: true
@@ -89,43 +40,79 @@ const SocialPostGenerator = () => {
   const [schedulingPost, setSchedulingPost] = useState(null);
   
   // Generate post content based on theme
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setIsGenerating(true);
+    setError(null);
     
-    // Simulate API call with timeout
-    setTimeout(() => {
-      const theme = selectedTheme || 'product_promotion';
-      const posts = POST_TEMPLATES[theme] || POST_TEMPLATES.product_promotion;
+    try {
+      // Prepare API request data
+      const themeText = customTheme || selectedTheme;
+      const selectedPlatformsList = Object.keys(selectedPlatforms).filter(platform => selectedPlatforms[platform]);
       
-      // Add metadata to posts and replace placeholders
-      const formattedPosts = posts.map(post => {
-        let content = post.content;
-        
-        // Replace placeholders with actual values when provided
-        if (productName) {
-          content = content.replace(/\[product\]/g, productName);
-        }
-        
-        // Replace other placeholders with sample values
-        content = content.replace(/\[benefit\]/g, 'daily use');
-        content = content.replace(/\[target audience\]/g, 'busy professionals');
-        content = content.replace(/\[X\]/g, '25');
-        content = content.replace(/\[date\]/g, 'May 15');
-        content = content.replace(/\[recipient\]/g, 'friends and family');
-        content = content.replace(/\[unexpected use\]/g, 'organizing your workspace');
-        content = content.replace(/\[tip\]/g, 'cleaning it regularly');
-        
-        return {
-          ...post,
-          content,
-          id: Math.random().toString(36).substring(2, 15),
-          createdAt: new Date().toISOString()
-        };
+      if (!themeText) {
+        throw new Error("Please select a theme or enter a custom theme");
+      }
+      
+      if (selectedPlatformsList.length === 0) {
+        throw new Error("Please select at least one platform");
+      }
+      
+      // Get the auth session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("You must be logged in to generate posts");
+      }
+      
+      // Make the API call
+      const response = await fetch(`${API_URL}/social/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          theme: selectedTheme,
+          customTheme,
+          platforms: selectedPlatformsList,
+          count: 3 // Generate 3 posts
+        })
       });
       
-      setGeneratedPosts(formattedPosts);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to generate posts");
+      }
+      
+      const data = await response.json();
+      
+      // Process received posts
+      if (data && data.posts && Array.isArray(data.posts)) {
+        // If product name is provided, replace [product] placeholders
+        const processedPosts = data.posts.map(post => {
+          let content = post.content;
+          
+          if (productName) {
+            content = content.replace(/\[product\]/g, productName);
+          }
+          
+          return {
+            ...post,
+            content,
+            id: Math.random().toString(36).substring(2, 15),
+            createdAt: new Date().toISOString()
+          };
+        });
+        
+        setGeneratedPosts(processedPosts);
+      } else {
+        throw new Error("Invalid response format from server");
+      }
+    } catch (err) {
+      console.error("Error generating posts:", err);
+      setError(err.message);
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
   
   // Toggle platform selection
@@ -136,7 +123,7 @@ const SocialPostGenerator = () => {
     }));
   };
   
-  // Simulate scheduling a post
+  // Schedule a post
   const handleSchedulePost = (post) => {
     // Show scheduler form
     setSchedulingPost(post);
@@ -152,23 +139,60 @@ const SocialPostGenerator = () => {
   };
   
   // Confirm scheduling
-  const confirmSchedule = () => {
-    if (!scheduledDate) {
-      alert('Please select a date');
+  const confirmSchedule = async () => {
+    if (!scheduledDate || !scheduledTime) {
+      alert('Please select both date and time');
       return;
     }
     
-    // Reset scheduler
-    setShowScheduler(false);
-    setSchedulingPost(null);
-    
-    // Show success message
-    setShowSuccess(true);
-    
-    // Hide after 3 seconds
-    setTimeout(() => {
-      setShowSuccess(false);
-    }, 3000);
+    try {
+      // Get the auth session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("You must be logged in to schedule posts");
+      }
+      
+      // Get selected platforms
+      const selectedPlatformsList = Object.keys(selectedPlatforms).filter(platform => selectedPlatforms[platform]);
+      
+      // Make API call to schedule post
+      const response = await fetch(`${API_URL}/social/schedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          postId: schedulingPost.id,
+          title: schedulingPost.title,
+          content: schedulingPost.content,
+          imagePrompt: schedulingPost.imagePrompt,
+          scheduledDate,
+          scheduledTime,
+          platforms: selectedPlatformsList
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to schedule post");
+      }
+      
+      // Reset scheduler
+      setShowScheduler(false);
+      setSchedulingPost(null);
+      
+      // Show success message
+      setShowSuccess(true);
+      
+      // Hide after 3 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+      }, 3000);
+    } catch (err) {
+      console.error("Error scheduling post:", err);
+      alert("Failed to schedule post: " + err.message);
+    }
   };
   
   // Copy post content to clipboard
@@ -276,6 +300,13 @@ const SocialPostGenerator = () => {
         </div>
       </div>
       
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 p-3 bg-pastel-pink/10 border border-pastel-pink/30 rounded-lg text-red-400">
+          <p className="font-medium">Error: {error}</p>
+        </div>
+      )}
+      
       {/* Generate Button */}
       <div className="mb-8">
         <motion.button
@@ -322,6 +353,13 @@ const SocialPostGenerator = () => {
                   </div>
                   <p className="text-sm italic text-white/80">{post.imagePrompt}</p>
                 </div>
+                
+                {post.bestTime && (
+                  <div className="flex items-center text-xs text-white/60 mb-3">
+                    <Clock size={12} className="mr-1" />
+                    <span>Best time to post: {post.bestTime}</span>
+                  </div>
+                )}
                 
                 <div className="flex flex-wrap justify-between gap-2">
                   <motion.button
