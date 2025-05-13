@@ -8,9 +8,8 @@ import AccountPage from './pages/AccountPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import ExamplesPage from './pages/ExamplesPage';
-// We'll create this component directly where the App.jsx file is
-// instead of using an import from a separate file
-import SimpleSocialMediaPage from './components/SocialPostGenerator'; // Using our component directly
+import SocialMediaPage from './pages/SocialMediaPage';
+
 
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
@@ -50,7 +49,8 @@ function AppRoutes() {
           <Route element={<ProtectedRoute />}>
             <Route path="/create" element={<AdCreator />} />
             <Route path="/account" element={<AccountPage />} />
-            <Route path="/social" element={<SimpleSocialMediaPage />} /> {/* Use simplified component */}
+            + <Route path="/social" element={<SocialMediaPage />} />
+
           </Route>
         
           <Route path="/pricing" element={<PricingPage />} />
