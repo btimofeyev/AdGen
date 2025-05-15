@@ -27,6 +27,8 @@ import ImageModal from "../components/ImageModal";
 import ConfirmationModal from "../components/ConfirmationModal";
 import ImageGrid from "../components/ImageGrid";
 import UserCredits from "../components/UserCredits";
+import CategorizedPrompts from '../components/CategorizedPrompts';
+
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 function AdCreator() {
@@ -634,54 +636,54 @@ function AdCreator() {
   // Handle downloading all images - unchanged
   const handleDownloadAll = async () => {
     if (generatedImages.length === 0) return;
-    
+
     setIsDownloading(true);
     setDownloadProgress(0);
-    
+
     try {
       const zip = new JSZip();
-      
+
       // Create a folder inside the zip for the images
       const imagesFolder = zip.folder("all-images");
-      
+
       // Process each image
       for (let i = 0; i < generatedImages.length; i++) {
         const image = generatedImages[i];
-        
+
         if (image.error || !image.base64Image) continue;
-        
+
         // Extract base64 data
-        const base64Data = image.base64Image.split(',')[1];
-        
+        const base64Data = image.base64Image.split(",")[1];
+
         // Add image to zip with meaningful filename
-        const fileName = `image-${i+1}-${image.id}.png`;
+        const fileName = `image-${i + 1}-${image.id}.png`;
         imagesFolder.file(fileName, base64Data, { base64: true });
-        
+
         // Update progress
-        setDownloadProgress(Math.round(((i + 1) / generatedImages.length) * 100));
+        setDownloadProgress(
+          Math.round(((i + 1) / generatedImages.length) * 100)
+        );
       }
-      
+
       // Generate README with information
-      const readme = 
-  `# All Images from PostoraAI
+      const readme = `# All Images from PostoraAI
   Download date: ${new Date().toISOString().slice(0, 10)}
   Number of images: ${generatedImages.length}
   
   Note: Images generated with PostoraAI will be automatically deleted after 7 days.
   Please keep these downloaded files if you want to preserve them.`;
-  
+
       zip.file("README.txt", readme);
-      
+
       // Generate the zip file
       const content = await zip.generateAsync({
         type: "blob",
         compression: "DEFLATE",
-        compressionOptions: { level: 6 }
+        compressionOptions: { level: 6 },
       });
-      
+
       // Download the zip file
       saveAs(content, `postoraai-all-images-${Date.now()}.zip`);
-      
     } catch (error) {
       console.error("Error creating zip file:", error);
       alert("Failed to download all images. Please try again.");
@@ -690,29 +692,29 @@ function AdCreator() {
       setDownloadProgress(0);
     }
   };
-  
+
   // Handle deleting selected images
   const handleDeleteSelected = () => {
-    const selectedIds = Object.keys(selectedImages).filter(id => selectedImages[id]);
+    const selectedIds = Object.keys(selectedImages).filter(
+      (id) => selectedImages[id]
+    );
     if (selectedIds.length === 0) return;
-    
-    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected image${selectedIds.length !== 1 ? 's' : ''}? This action cannot be undone.`)) {
-      selectedIds.forEach(id => {
+
+    if (
+      window.confirm(
+        `Are you sure you want to delete ${selectedIds.length} selected image${
+          selectedIds.length !== 1 ? "s" : ""
+        }? This action cannot be undone.`
+      )
+    ) {
+      selectedIds.forEach((id) => {
         handleDeleteImage(id);
       });
-      
+
       // Clear selections after deletion
       setSelectedImages({});
     }
   };
-
-  const funPrompts = [
-    "Place my product in a cozy living room",
-    "Put my product on a marble desk",
-    "Feature my product with a beach background",
-    "Show my product on a luxury shelf",
-    "Style my product in an outdoor market",
-  ];
 
   const handleFunPromptClick = (text) => {
     setPrompt(text);
@@ -1032,55 +1034,59 @@ function AdCreator() {
     [credits, creditsLoading, numImages, imageSize, subscription, creditsError]
   );
   const handleDownloadSelected = async () => {
-    const selectedIds = Object.keys(selectedImages).filter(id => selectedImages[id]);
+    const selectedIds = Object.keys(selectedImages).filter(
+      (id) => selectedImages[id]
+    );
     if (selectedIds.length === 0) return;
-    
+
     setIsDownloading(true);
     setDownloadProgress(0);
-    
+
     try {
       const zip = new JSZip();
-      const selectedImageObjects = generatedImages.filter(image => selectedImages[image.id]);
-      
+      const selectedImageObjects = generatedImages.filter(
+        (image) => selectedImages[image.id]
+      );
+
       // Create a folder inside the zip for the images
       const imagesFolder = zip.folder("selected-images");
-      
+
       // Process each selected image
       for (let i = 0; i < selectedImageObjects.length; i++) {
         const image = selectedImageObjects[i];
-        
+
         // Extract base64 data
-        const base64Data = image.base64Image.split(',')[1];
-        
+        const base64Data = image.base64Image.split(",")[1];
+
         // Add image to zip with meaningful filename
-        const fileName = `image-${i+1}-${image.id}.png`;
+        const fileName = `image-${i + 1}-${image.id}.png`;
         imagesFolder.file(fileName, base64Data, { base64: true });
-        
+
         // Update progress
-        setDownloadProgress(Math.round(((i + 1) / selectedImageObjects.length) * 100));
+        setDownloadProgress(
+          Math.round(((i + 1) / selectedImageObjects.length) * 100)
+        );
       }
-      
+
       // Generate README with information
-      const readme = 
-  `# Selected Images from PostoraAI
+      const readme = `# Selected Images from PostoraAI
   Download date: ${new Date().toISOString().slice(0, 10)}
   Number of images: ${selectedImageObjects.length}
   
   Note: Images generated with PostoraAI will be automatically deleted after 7 days.
   Please keep these downloaded files if you want to preserve them.`;
-  
+
       zip.file("README.txt", readme);
-      
+
       // Generate the zip file
       const content = await zip.generateAsync({
         type: "blob",
         compression: "DEFLATE",
-        compressionOptions: { level: 6 }
+        compressionOptions: { level: 6 },
       });
-      
+
       // Download the zip file
       saveAs(content, `postoraai-selected-images-${Date.now()}.zip`);
-      
     } catch (error) {
       console.error("Error creating zip file:", error);
       alert("Failed to download selected images. Please try again.");
@@ -1089,7 +1095,7 @@ function AdCreator() {
       setDownloadProgress(0);
     }
   };
-  
+
   return (
     <div className="min-h-screen flex bg-[#181A20] text-gray-100">
       {/* Always render the hidden file input for uploads */}
@@ -1138,7 +1144,7 @@ function AdCreator() {
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="relative w-[90vw] max-w-[22rem] h-full bg-[#23262F] border-r border-[#23262F]/60 shadow-2xl z-[120] p-0 overflow-y-auto"
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
               <button
                 className="sticky top-0 right-0 z-[130] p-2 m-2 rounded-full bg-[#23262F] hover:bg-pastel-blue/10 focus:outline-none"
@@ -1163,19 +1169,28 @@ function AdCreator() {
                 <div className="flex flex-col gap-3 mt-4">
                   <button
                     className="flex items-center gap-2 px-4 py-3 rounded-lg bg-background/10 text-white font-semibold text-base hover:bg-pastel-blue/10 transition"
-                    onClick={() => { setMobileSidebarOpen(false); navigate("/"); }}
+                    onClick={() => {
+                      setMobileSidebarOpen(false);
+                      navigate("/");
+                    }}
                   >
                     <Home size={18} className="text-pastel-blue" /> Home
                   </button>
                   <button
                     className="flex items-center gap-2 px-4 py-3 rounded-lg bg-background/10 text-white font-semibold text-base hover:bg-pastel-blue/10 transition"
-                    onClick={() => { setMobileSidebarOpen(false); navigate("/account"); }}
+                    onClick={() => {
+                      setMobileSidebarOpen(false);
+                      navigate("/account");
+                    }}
                   >
                     <User size={18} className="text-pastel-blue" /> Account
                   </button>
                   <button
                     className="flex items-center gap-2 px-4 py-3 rounded-lg bg-background/10 text-white font-semibold text-base hover:bg-pastel-blue/10 transition"
-                    onClick={() => { setMobileSidebarOpen(false); handleLogout(); }}
+                    onClick={() => {
+                      setMobileSidebarOpen(false);
+                      handleLogout();
+                    }}
                   >
                     <LogOut size={18} className="text-pastel-blue" /> Log Out
                   </button>
@@ -1401,29 +1416,10 @@ function AdCreator() {
                               </div>
                             )}
 
-                            {/* Scene ideas directly below the images */}
-                            <div className="mt-8 max-w-3xl mx-auto">
-                              <h4 className="text-lg font-medium mb-3 text-white">
-                                Quick Scene Ideas
-                              </h4>
-                              <div className="flex flex-wrap gap-2 justify-center">
-                                {funPrompts.map((text, idx) => (
-                                  <motion.button
-                                    key={idx}
-                                    whileHover={{
-                                      scale: 1.03,
-                                      backgroundColor:
-                                        "rgba(123, 223, 242, 0.25)",
-                                    }}
-                                    whileTap={{ scale: 0.97 }}
-                                    onClick={() => handleFunPromptClick(text)}
-                                    className="text-sm text-pastel-blue bg-pastel-blue/10 hover:bg-pastel-blue/20 py-2 px-3 rounded-lg font-medium transition-all"
-                                  >
-                                    {text}
-                                  </motion.button>
-                                ))}
-                              </div>
-                            </div>
+                            {/* Categorized prompt suggestions */}
+                            <CategorizedPrompts
+                              onPromptClick={handleFunPromptClick}
+                            />
                           </div>
                         )}
                       </motion.div>
@@ -1687,9 +1683,7 @@ function AdCreator() {
           </div>
 
           {/* Right Sidebar */}
-          <div className="hidden md:block">
-            {SidebarContent}
-          </div>
+          <div className="hidden md:block">{SidebarContent}</div>
         </div>
 
         {/* Prompt Input - Fixed at Bottom */}
@@ -1705,19 +1699,35 @@ function AdCreator() {
                 <div className="relative">
                   <button
                     type="button"
-                    className={`p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition ${showStylePopover ? 'ring-2 ring-pastel-blue' : ''}`}
+                    className={`p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition ${
+                      showStylePopover ? "ring-2 ring-pastel-blue" : ""
+                    }`}
                     title="Change image style"
-                    onClick={() => { setShowStylePopover(v => !v); setShowNumPopover(false); }}
+                    onClick={() => {
+                      setShowStylePopover((v) => !v);
+                      setShowNumPopover(false);
+                    }}
                   >
                     <Image className="h-5 w-5" />
                   </button>
                   {showStylePopover && (
                     <div className="absolute left-0 bottom-full mb-2 w-40 bg-background border border-border rounded-lg shadow-lg z-30">
-                      {[{label: 'Square (1024×1024)', value: '1024x1024'}, {label: 'Landscape (1536×1024)', value: '1536x1024'}, {label: 'Portrait (1024×1536)', value: '1024x1536'}].map(opt => (
+                      {[
+                        { label: "Square (1024×1024)", value: "1024x1024" },
+                        { label: "Landscape (1536×1024)", value: "1536x1024" },
+                        { label: "Portrait (1024×1536)", value: "1024x1536" },
+                      ].map((opt) => (
                         <button
                           key={opt.value}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-pastel-blue/10 ${imageSize === opt.value ? 'font-bold text-pastel-blue' : ''}`}
-                          onClick={() => { setImageSize(opt.value); setShowStylePopover(false); }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-pastel-blue/10 ${
+                            imageSize === opt.value
+                              ? "font-bold text-pastel-blue"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setImageSize(opt.value);
+                            setShowStylePopover(false);
+                          }}
                         >
                           {opt.label}
                         </button>
@@ -1729,22 +1739,32 @@ function AdCreator() {
                 <div className="relative">
                   <button
                     type="button"
-                    className={`p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition text-sm font-bold ${showNumPopover ? 'ring-2 ring-pastel-blue' : ''}`}
+                    className={`p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition text-sm font-bold ${
+                      showNumPopover ? "ring-2 ring-pastel-blue" : ""
+                    }`}
                     title="Change number of images"
-                    onClick={() => { setShowNumPopover(v => !v); setShowStylePopover(false); }}
+                    onClick={() => {
+                      setShowNumPopover((v) => !v);
+                      setShowStylePopover(false);
+                    }}
                   >
                     <SlidersHorizontal className="h-5 w-5 inline-block mr-1" />
                     {numImages}x
                   </button>
                   {showNumPopover && (
                     <div className="absolute left-0 bottom-full mb-2 w-28 bg-background border border-border rounded-lg shadow-lg z-30">
-                      {[1,2,3,4].map(n => (
+                      {[1, 2, 3, 4].map((n) => (
                         <button
                           key={n}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-pastel-blue/10 ${numImages === n ? 'font-bold text-pastel-blue' : ''}`}
-                          onClick={() => { setNumImages(n); setShowNumPopover(false); }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-pastel-blue/10 ${
+                            numImages === n ? "font-bold text-pastel-blue" : ""
+                          }`}
+                          onClick={() => {
+                            setNumImages(n);
+                            setShowNumPopover(false);
+                          }}
                         >
-                          {n} image{n > 1 ? 's' : ''}
+                          {n} image{n > 1 ? "s" : ""}
                         </button>
                       ))}
                     </div>
@@ -1755,7 +1775,9 @@ function AdCreator() {
                   type="button"
                   className="p-2 rounded-full bg-background border border-border hover:bg-pastel-blue/10 transition"
                   title="Upload images"
-                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  onClick={() =>
+                    fileInputRef.current && fileInputRef.current.click()
+                  }
                 >
                   <FileUp className="h-5 w-5" />
                 </button>
@@ -1767,7 +1789,10 @@ function AdCreator() {
                 rows="2"
                 placeholder="Describe your scene... (e.g. 'Products in a gift basket with a white background')"
                 className="w-full p-2 sm:p-4 bg-background border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:border-transparent shadow-sm hover:shadow transition-all text-foreground text-sm sm:text-base"
-                onBlur={() => { setShowStylePopover(false); setShowNumPopover(false); }}
+                onBlur={() => {
+                  setShowStylePopover(false);
+                  setShowNumPopover(false);
+                }}
               />
               <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 text-xs text-charcoal/40">
                 {prompt.length} / 300
