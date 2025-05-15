@@ -40,10 +40,6 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-/**
- * Optional middleware - only verify token if provided
- * Useful for routes that can work with or without authentication
- */
 const optionalAuth = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
