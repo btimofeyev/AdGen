@@ -6,8 +6,7 @@ import { CheckIcon, Sparkles, Tag, Clock } from "lucide-react";
 import { Elements } from '@stripe/react-stripe-js';
 import stripePromise from '../lib/stripe';
 import SubscriptionForm from '../components/SubscriptionForm';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+
 import { API_URL } from '../config';
 import supabase from '../lib/supabase'; 
 
