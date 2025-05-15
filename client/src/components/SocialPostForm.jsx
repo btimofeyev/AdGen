@@ -1,5 +1,4 @@
-// client/src/components/SocialPostForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, UploadCloud, Image, Check, Calendar, Copy, Clock, X, AlertCircle,
@@ -9,42 +8,9 @@ import supabase from '../lib/supabase';
 import { API_URL } from '../config';
 
 const POST_TYPES = [
-  { 
-    id: 'business', 
-    name: 'Business', 
-    icon: <Store size={20} />,
-    description: 'Content for marketing, promotions and business announcements',
-    themes: [
-      { id: 'product_promotion', name: 'Product Promotion', emoji: '✨' },
-      { id: 'sale_announcement', name: 'Sale Announcement', emoji: '🏷️' },
-      { id: 'holiday_special', name: 'Holiday Special', emoji: '🎄' },
-      { id: 'limited_time_offer', name: 'Limited Time Offer', emoji: '⏱️' }
-    ]
-  },
-  { 
-    id: 'personal', 
-    name: 'Personal', 
-    icon: <User size={20} />,
-    description: 'Content for personal branding and lifestyle sharing',
-    themes: [
-      { id: 'lifestyle_update', name: 'Lifestyle Update', emoji: '🌟' },
-      { id: 'travel_memory', name: 'Travel Memory', emoji: '✈️' },
-      { id: 'celebration', name: 'Celebration', emoji: '🎉' },
-      { id: 'personal_milestone', name: 'Personal Milestone', emoji: '🏆' }
-    ]
-  },
-  { 
-    id: 'educational', 
-    name: 'Educational', 
-    icon: <BookOpen size={20} />,
-    description: 'Content for sharing knowledge and expertise',
-    themes: [
-      { id: 'tips_and_tricks', name: 'Tips & Tricks', emoji: '💡' },
-      { id: 'tutorial', name: 'Tutorial', emoji: '📝' },
-      { id: 'industry_insight', name: 'Industry Insight', emoji: '📊' },
-      { id: 'expert_advice', name: 'Expert Advice', emoji: '🧠' }
-    ]
-  }
+  { id: 'business', name: 'Business', icon: <Store size={20} />, description: 'Content for marketing, promotions and business announcements', themes: [ { id: 'product_promotion', name: 'Product Promotion', emoji: '✨' }, { id: 'sale_announcement', name: 'Sale Announcement', emoji: '🏷️' }, { id: 'holiday_special', name: 'Holiday Special', emoji: '🎄' }, { id: 'limited_time_offer', name: 'Limited Time Offer', emoji: '⏱️' } ] },
+  { id: 'personal', name: 'Personal', icon: <User size={20} />, description: 'Content for personal branding and lifestyle sharing', themes: [ { id: 'lifestyle_update', name: 'Lifestyle Update', emoji: '🌟' }, { id: 'travel_memory', name: 'Travel Memory', emoji: '✈️' }, { id: 'celebration', name: 'Celebration', emoji: '🎉' }, { id: 'personal_milestone', name: 'Personal Milestone', emoji: '🏆' } ] },
+  { id: 'educational', name: 'Educational', icon: <BookOpen size={20} />, description: 'Content for sharing knowledge and expertise', themes: [ { id: 'tips_and_tricks', name: 'Tips & Tricks', emoji: '💡' }, { id: 'tutorial', name: 'Tutorial', emoji: '📝' }, { id: 'industry_insight', name: 'Industry Insight', emoji: '📊' }, { id: 'expert_advice', name: 'Expert Advice', emoji: '🧠' } ] }
 ];
 
 const PLATFORMS = [
@@ -54,34 +20,46 @@ const PLATFORMS = [
   { id: 'linkedin', name: 'LinkedIn', color: '#0A66C2' }
 ];
 
-// Helper function to convert a File/Blob object to a base64 Data URI
-const fileToDataUri = (file) => new Promise((resolve, reject) => {
-    if (!(file instanceof Blob)) { 
-        console.error("fileToDataUri: Input is not a File or Blob.", file);
-        reject(new Error("Input is not a File or Blob."));
-        return;
-    }
-const reader = new FileReader();
-reader.onload = () => resolve(reader.result);
-reader.onabort = () => reject(new Error('Read aborted'));
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-});
+const THEME_DESCRIPTIONS = {
+  product_promotion: 'Announce the key benefit of …',
+  sale_announcement: 'Highlight urgency and % discount …',
+  holiday_special: 'Create excitement for a festive offer ...',
+  limited_time_offer: 'Emphasize scarcity for a special deal ...',
+  lifestyle_update: 'Share a recent personal experience or insight ...',
+  travel_memory: 'Recount a memorable travel story ...',
+  celebration: 'Announce a joyful event or achievement ...',
+  personal_milestone: 'Reflect on a significant personal landmark ...',
+  tips_and_tricks: 'Offer actionable advice on ...',
+  tutorial: 'Provide a step-by-step guide for ...',
+  industry_insight: 'Share a key observation about current trends in ...',
+  expert_advice: 'Give authoritative guidance on ...',
+};
 
+const fileToDataUri = (file) => new Promise((resolve, reject) => {
+  if (!(file instanceof Blob)) {
+    reject(new Error("Input is not a File or Blob."));
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onabort = () => reject(new Error('File read aborted'));
+  reader.onerror = (error) => reject(error);
+  reader.readAsDataURL(file);
+});
 
 const SocialPostCreator = ({ onPostScheduled }) => {
   const [currentStep, setCurrentStep] = useState('post-type');
   const [selectedPostType, setSelectedPostType] = useState(null);
   const [selectedTheme, setSelectedTheme] = useState('');
-  const [customTheme, setCustomTheme] = useState(''); 
+  const [customTheme, setCustomTheme] = useState('');
   
-  const [title, setTitle] = useState(''); 
-  const [content, setContent] = useState(''); 
-  const [imagePrompt, setImagePrompt] = useState(''); 
-  const [productName, setProductName] = useState(''); 
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [productName, setProductName] = useState('');
 
-  const [imageFile, setImageFile] = useState(null); 
-  const [imagePreview, setImagePreview] = useState(null); 
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [isDraggingOverAI, setIsDraggingOverAI] = useState(false);
   const [isDraggingOverManual, setIsDraggingOverManual] = useState(false);
 
@@ -97,6 +75,7 @@ const SocialPostCreator = ({ onPostScheduled }) => {
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   useEffect(() => {
@@ -106,96 +85,89 @@ const SocialPostCreator = ({ onPostScheduled }) => {
     setScheduledTime('12:00');
   }, []);
 
-  const togglePlatform = (platformId) => setSelectedPlatforms(prev => ({ ...prev, [platformId]: !prev[platformId] }));
+  useEffect(() => {
+    const currentPreview = imagePreview;
+    return () => {
+      if (currentPreview && currentPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreview);
+      }
+    };
+  }, [imagePreview]);
 
-  const processAndSetImage = async (imageDataOrFile) => {
-    setError(null);
-    // Revoke previous blob URL if it exists to prevent memory leaks
+  const clearImage = useCallback(() => {
     if (imagePreview && imagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(null);
+    setImagePreview(null);
+  }, [imagePreview]);
+
+  const processAndSetImage = useCallback(async (imageDataOrFile) => {
+    setError(null);
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview); // Clean up previous blob URL
     }
 
     if (!imageDataOrFile) {
-        setImageFile(null);
-        setImagePreview(null);
-        return;
+        setImageFile(null); setImagePreview(null); return;
     }
 
-    if (typeof imageDataOrFile === 'string') { // Dropped a URL or Data URI string
+    let fileToProcess = null;
+    let previewToSet = null;
+
+    if (imageDataOrFile instanceof File) {
+        fileToProcess = imageDataOrFile;
+    } else if (typeof imageDataOrFile === 'string') {
         if (imageDataOrFile.startsWith('data:image') || imageDataOrFile.startsWith('http')) {
-            setImagePreview(imageDataOrFile); 
-            setImageFile(null); // It's not a File object that can be directly re-used for upload
+            previewToSet = imageDataOrFile;
         } else if (imageDataOrFile.startsWith('blob:')) {
-            // This means a blob URL string was somehow passed directly.
-            // Attempt to fetch it to get the underlying blob, then treat as a file.
-            console.warn("Received blob URL as string. Attempting to fetch and convert.");
             try {
                 const response = await fetch(imageDataOrFile);
                 if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
                 const blob = await response.blob();
-                const tempFile = new File([blob], "dropped_blob_image." + (blob.type.split('/')[1] || 'png'), { type: blob.type });
-                
-                // Now process this tempFile as if it was a dropped/selected file
-                if (tempFile.size > 10 * 1024 * 1024) {
-                    setError('Image file is too large (max 10MB).'); clearImage(); return;
-                }
-                if (!tempFile.type.startsWith('image/')) {
-                    setError('Invalid file type. Please upload an image.'); clearImage(); return;
-                }
-                setImageFile(tempFile);
-                setImagePreview(URL.createObjectURL(tempFile)); // Create a new blob URL for this new File object
+                fileToProcess = new File([blob], "dropped_blob_image." + (blob.type.split('/')[1] || 'png'), { type: blob.type });
             } catch (fetchErr) {
                 console.error("Error processing blob URL string:", fetchErr);
-                setError("Could not process the dropped image data. Please try re-uploading the file.");
-                clearImage();
+                setError("Could not process the dropped image. Please try re-uploading the file.");
+                clearImage(); return;
             }
         } else {
-            setError("Invalid image data format dropped.");
-            clearImage();
-        }
-    } else { // It's a File object (from input or e.dataTransfer.files[0])
-        if (!(imageDataOrFile instanceof File)) {
-            setError("Dropped item is not a valid file.");
+            setError("Invalid image data format.");
             clearImage(); return;
         }
-        if (imageDataOrFile.size > 10 * 1024 * 1024) {
-            setError('Image file is too large (max 10MB).'); clearImage(); return;
-        }
-        if (!imageDataOrFile.type.startsWith('image/')) {
-            setError('Invalid file type. Please upload an image.'); clearImage(); return;
-        }
-        setImageFile(imageDataOrFile); // Store the actual File object
-        setImagePreview(URL.createObjectURL(imageDataOrFile)); // Use Blob URL for efficient local preview
+    } else {
+        setError("Unsupported item type for image.");
+        clearImage(); return;
     }
-  };
 
-  const handleDragOverAI = (e) => { e.preventDefault(); setIsDraggingOverAI(true); };
-  const handleDragLeaveAI = (e) => { setIsDraggingOverAI(false); };
-  const handleDropAI = async (e) => {
-    e.preventDefault(); setIsDraggingOverAI(false);
+    if (fileToProcess) {
+        if (fileToProcess.size > 10 * 1024 * 1024) { // 10MB
+            setError('Image file too large (max 10MB).'); clearImage(); return;
+        }
+        if (!fileToProcess.type.startsWith('image/')) {
+            setError('Invalid file type (image required).'); clearImage(); return;
+        }
+        setImageFile(fileToProcess);
+        setImagePreview(URL.createObjectURL(fileToProcess));
+    } else if (previewToSet) {
+        setImageFile(null);
+        setImagePreview(previewToSet);
+    } else {
+        clearImage(); // Fallback if no valid image path determined
+    }
+  }, [imagePreview, clearImage]);
+
+
+  const handleImageDrop = (e, type) => {
+    e.preventDefault();
+    type === 'ai' ? setIsDraggingOverAI(false) : setIsDraggingOverManual(false);
     const droppedItem = (e.dataTransfer.files && e.dataTransfer.files[0]) || e.dataTransfer.getData("text/plain");
     processAndSetImage(droppedItem);
   };
-  const handleInputChangeAI = (e) => {
-    if (e.target.files && e.target.files[0]) processAndSetImage(e.target.files[0]);
-    if (e.target) e.target.value = null; 
-  };
 
-  const handleDragOverManual = (e) => { e.preventDefault(); setIsDraggingOverManual(true); };
-  const handleDragLeaveManual = (e) => { setIsDraggingOverManual(false); };
-  const handleDropManual = async (e) => {
-    e.preventDefault(); setIsDraggingOverManual(false);
-    const droppedItem = (e.dataTransfer.files && e.dataTransfer.files[0]) || e.dataTransfer.getData("text/plain");
-    processAndSetImage(droppedItem);
-  };
-  const handleInputChangeManual = (e) => {
+  const handleImageInputChange = (e) => {
     if (e.target.files && e.target.files[0]) processAndSetImage(e.target.files[0]);
-    if (e.target) e.target.value = null; 
-  };
-
-  const clearImage = () => {
-    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
-    setImageFile(null); setImagePreview(null);
+    if (e.target) e.target.value = null;
   };
 
   const handlePostTypeSelect = (type) => { 
@@ -204,61 +176,42 @@ const SocialPostCreator = ({ onPostScheduled }) => {
 
   const handleThemeSelect = (themeId) => {
     setSelectedTheme(themeId); setCurrentStep('creation');
-    if (!customTheme && selectedPostType) { 
+    if (!customTheme && selectedPostType) {
       const themeObj = selectedPostType.themes.find(t => t.id === themeId);
-      if (themeObj) {
-        const themeDescriptions = {
-  product_promotion: 'Announce the key benefit of …',
-  sale_announcement: 'Highlight urgency and % discount …',
-  /* … */
-};
-        setCustomTheme(themeDescriptions[themeId] || '');
-      }
+      if (themeObj) setCustomTheme(THEME_DESCRIPTIONS[themeId] || '');
     }
-    if (selectedPostType?.id === 'business') setTimeout(() => document.getElementById('product-name-input')?.focus(), 300);
-    else setTimeout(() => document.getElementById('custom-theme-input')?.focus(), 300);
+    const focusTargetId = selectedPostType?.id === 'business' ? 'product-name-input' : 'custom-theme-input';
+    setTimeout(() => document.getElementById(focusTargetId)?.focus(), 300);
   };
 
   const handleGenerateWithAI = async () => {
     setError(null); setIsGenerating(true); setGeneratedPosts([]);
     try {
       const themeText = customTheme || selectedTheme;
-      if (!selectedPostType && currentStep === 'creation' && !themeText && !imagePreview) {
-          throw new Error('Please describe your post, select a theme/type, or add an image to generate ideas.');
-      } else if (currentStep !== 'creation' && !selectedPostType && !themeText && !imagePreview){ 
-          if(selectedPostType || themeText || imagePreview) {} 
-          else { throw new Error('Please describe your post, select a theme/type, or add an image.'); }
+      if (!selectedPostType && !themeText && !imagePreview) {
+        throw new Error('Please describe your post, select a theme/type, or add an image.');
       }
       
-      const selectedPlatformsList = Object.keys(selectedPlatforms).filter(p => selectedPlatforms[p]);
-      if (selectedPlatformsList.length === 0) throw new Error('Please select at least one platform.');
+      const activePlatforms = Object.keys(selectedPlatforms).filter(p => selectedPlatforms[p]);
+      if (activePlatforms.length === 0) throw new Error('Please select at least one platform.');
       
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('You must be logged in.');
+      if (!session) throw new Error('Authentication required.');
       
       let imageUrlForApi = null;
-      if (imageFile) { // Prioritize imageFile for conversion to data URI
-          console.log("Converting imageFile to data URI for API...");
+      if (imageFile) {
           imageUrlForApi = await fileToDataUri(imageFile);
-      } else if (imagePreview) { // If no imageFile, check imagePreview
-          if (imagePreview.startsWith('data:image')) { 
+      } else if (imagePreview) {
+          if (imagePreview.startsWith('data:image') || imagePreview.startsWith('http')) {
               imageUrlForApi = imagePreview;
-              console.log("Using existing data URI from imagePreview for API.");
-          } else if (imagePreview.startsWith('http')) { 
-              imageUrlForApi = imagePreview; 
-              console.log("Using HTTP/S URL from imagePreview for API.");
           } else if (imagePreview.startsWith('blob:')) {
-              // This is a fallback if imageFile was somehow cleared but blob URL preview remains.
-              console.warn("imagePreview is a blob URL and imageFile is null. Attempting conversion from blob URL.");
               try {
                   const response = await fetch(imagePreview);
                   if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
                   const blob = await response.blob();
                   imageUrlForApi = await fileToDataUri(blob);
-                  console.log("Successfully converted blob URL to data URI for API as fallback.");
               } catch (blobFetchErr) {
-                  console.error("Failed to fetch and convert blob URL to data URI:", blobFetchErr);
-                  throw new Error("Could not process the image. Please re-upload or use a direct URL.");
+                  throw new Error("Could not process image preview for AI. Please re-upload.");
               }
           }
       }
@@ -266,11 +219,11 @@ const SocialPostCreator = ({ onPostScheduled }) => {
       const payload = {
         theme: selectedTheme, customTheme, 
         postType: selectedPostType?.id || 'general', 
-        platforms: selectedPlatformsList,
-        productName: productName || undefined, count: 3,
-        imageUrl: imageUrlForApi || undefined, 
+        platforms: activePlatforms,
+        ...(productName && { productName }),
+        count: 3,
+        ...(imageUrlForApi && { imageUrl: imageUrlForApi }),
       };
-      console.log("Sending to /social/generate. Image URL for API (first 100 chars):", payload.imageUrl ? payload.imageUrl.substring(0,100) + "..." : "No image");
       
       const response = await fetch(`${API_URL}/social/generate`, { 
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -281,20 +234,19 @@ const SocialPostCreator = ({ onPostScheduled }) => {
         const errorText = await response.text();
         let errorData;
         try { errorData = JSON.parse(errorText); } 
-        catch(e) { errorData = { message: errorText || "Unknown error from server."}; }
-        throw new Error(errorData.message || `Failed to generate post ideas. Status: ${response.status}`);
+        catch(e) { errorData = { message: errorText || "Unknown server error."}; }
+        throw new Error(errorData.message || `AI generation failed. Status: ${response.status}`);
       }
       
       const data = await response.json();
       if (data && data.posts && Array.isArray(data.posts)) {
-        const processedPosts = data.posts.map(post => ({
+        setGeneratedPosts(data.posts.map(post => ({
           ...post, id: `ai_gen_${Math.random().toString(36).substring(2, 9)}`,
-          sourceImageUrl: imageUrlForApi || null // Store the data URI or URL that was sent
-        }));
-        setGeneratedPosts(processedPosts);
-      } else { throw new Error('Invalid response format from AI server.'); }
+          sourceImageUrl: imageUrlForApi || null
+        })));
+      } else { throw new Error('Invalid response from AI server.'); }
     } catch (err) {
-      console.error('Error in handleGenerateWithAI:', err); setError(err.message);
+      setError(err.message);
     } finally { setIsGenerating(false); }
   };
 
@@ -303,24 +255,16 @@ const SocialPostCreator = ({ onPostScheduled }) => {
     setImagePrompt(post.imagePrompt || ''); 
     
     if (post.sourceImageUrl) {
-        // If the sourceImageUrl is a data URI that came from our imageFile,
-        // we prefer to keep using the blob URL from imageFile for preview for performance.
-        // Otherwise, use the sourceImageUrl (which could be a data URI from another source or an http URL).
-        if (imageFile && post.sourceImageUrl.startsWith('data:image')) {
-            // If imagePreview is not already the blob URL of the current imageFile, update it.
-            const currentBlobUrl = URL.createObjectURL(imageFile);
-            if (imagePreview !== currentBlobUrl) {
-                if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
-                setImagePreview(currentBlobUrl);
-            }
-        } else { // sourceImageUrl is likely an HTTP URL or a data URI not from current imageFile
-             if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
-             setImagePreview(post.sourceImageUrl);
-             setImageFile(null); // Since preview is now data URI or http, no corresponding File object.
-        }
+      // If imageFile is present and sourceImageUrl is a data URI (likely derived from imageFile),
+      // we prefer to keep using the blob URL from imageFile for preview for performance.
+      // Otherwise, use sourceImageUrl (which could be data URI from another source or an http URL).
+      if (!(imageFile && post.sourceImageUrl.startsWith('data:image'))) {
+        if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+        setImagePreview(post.sourceImageUrl);
+        setImageFile(null); // Preview is now from AI source, not a local File object.
+      }
+      // If imageFile is set and sourceImageUrl IS a data URI, imagePreview should already be its blob URL. No action needed.
     }
-    
-    if (post.bestTime) { /* ... bestTime parsing ... */ }
     setAiMode(false); 
     setTimeout(() => document.getElementById('post-content-area')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
@@ -328,75 +272,72 @@ const SocialPostCreator = ({ onPostScheduled }) => {
   const handleSchedulePost = async (e) => { 
     e.preventDefault(); setError(null); setIsSubmitting(true);
     try {
-        // ... (validations for content, date, time, platforms) ...
+        if (!content.trim() && !title.trim()) throw new Error('Post content or title cannot be empty.');
+        if (!scheduledDate || !scheduledTime) throw new Error('Please set a schedule date and time.');
+        const activePlatforms = Object.keys(selectedPlatforms).filter(p => selectedPlatforms[p]);
+        if (activePlatforms.length === 0) throw new Error('Please select at least one platform.');
+
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('You must be logged in.');
+        if (!session) throw new Error('Authentication required.');
 
-        let imageUrlForApi = null; let storagePathForApi = null; 
-        let finalImageToUpload = imageFile; 
+        let finalImageUrl = null; 
+        let finalStoragePath = null;
+        let imageToUpload = imageFile; 
 
-        if (!finalImageToUpload && imagePreview && imagePreview.startsWith('data:image')) {
+        if (!imageToUpload && imagePreview && imagePreview.startsWith('data:image')) {
             try {
                 const res = await fetch(imagePreview); 
                 const blob = await res.blob();
-                const extension = blob.type.split('/')[1] || 'png';
-                finalImageToUpload = new File([blob], `pasted_image.${extension}`, { type: blob.type });
+                imageToUpload = new File([blob], `pasted_image.${blob.type.split('/')[1] || 'png'}`, { type: blob.type });
             } catch (convertError) {
-                console.error("Error converting data URI preview to file for schedule upload:", convertError);
-                // Decide if you want to proceed without image or throw error
+                console.warn("Error converting data URI preview to file for schedule:", convertError);
             }
         }
         
-        if (finalImageToUpload) {
+        if (imageToUpload) {
             const formData = new FormData(); 
-            formData.append('image', finalImageToUpload); // 'image' should match multer field name
-
-            // Use the NEW endpoint for social post images
-            const uploadResponse = await fetch(`${API_URL}/upload/social-post`, { // <--- CHANGED URL
+            formData.append('image', imageToUpload);
+            const uploadResponse = await fetch(`${API_URL}/upload/social-post`, {
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${session.access_token}` }, 
                 body: formData 
             });
-
             if (!uploadResponse.ok) {
                 const errorData = await uploadResponse.json();
-                throw new Error(errorData.error || errorData.message || 'Failed to upload image for social post.');
+                throw new Error(errorData.error || errorData.message || 'Failed to upload image.');
             }
             const uploadData = await uploadResponse.json(); 
-            imageUrlForApi = uploadData.url; // This is now the Supabase public URL
-            storagePathForApi = uploadData.filepath; // This is now the path in Supabase bucket
+            finalImageUrl = uploadData.url; 
+            finalStoragePath = uploadData.filepath; 
         } else if (imagePreview && imagePreview.startsWith('http')) { 
-            // If user pasted/dropped an external HTTP/S URL, use it directly
-            imageUrlForApi = imagePreview; 
-            storagePathForApi = null; // No direct Supabase storage path for external URLs
+            finalImageUrl = imagePreview; 
         }
 
-        // Now imageUrlForApi will be a proper web URL (from Supabase Storage or external)
         const response = await fetch(`${API_URL}/social/schedule`, { 
             method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({
                 title, content, imagePrompt, 
-                imageUrl: imageUrlForApi, // This is now a web URL
-                storagePath: storagePathForApi, // This is Supabase bucket path or null
+                imageUrl: finalImageUrl, 
+                storagePath: finalStoragePath,
                 scheduledDate, scheduledTime, postType: selectedPostType?.id || 'general',
-                theme: selectedTheme || customTheme, platforms: Object.keys(selectedPlatforms).filter(p => selectedPlatforms[p])
+                theme: selectedTheme || customTheme, platforms: activePlatforms
             })
         });
         if (!response.ok) throw new Error((await response.json()).message || 'Failed to schedule post.');
         
-        const data = await response.json(); setShowSuccess(true);
-        if (onPostScheduled) onPostScheduled(data.scheduledPost || {}); // Pass the full scheduled post object
+        const data = await response.json(); 
+        setShowSuccess(true);
+        if (onPostScheduled) onPostScheduled(data.scheduledPost || {});
         
-        // Reset form
         setTimeout(() => { 
           setTitle(''); setContent(''); setImagePrompt(''); clearImage();
           setCurrentStep('post-type'); setSelectedPostType(null); setSelectedTheme(''); setCustomTheme('');
           setGeneratedPosts([]); setProductName('');
-          setTimeout(() => setShowSuccess(false), 2000); 
-        }, 1000);
-    } catch (err) { setError(err.message); console.error("Error in handleSchedulePost:", err); } 
+          setShowSuccess(false);
+        }, 2000);
+    } catch (err) { setError(err.message); } 
     finally { setIsSubmitting(false); }
-};
+  };
   
   const handleGoBack = () => { 
     if (currentStep === 'theme') { setCurrentStep('post-type'); }
@@ -405,31 +346,40 @@ const SocialPostCreator = ({ onPostScheduled }) => {
   const handleStartOver = () => { 
     setCurrentStep('post-type'); setSelectedPostType(null); setSelectedTheme('');
     setCustomTheme(''); setTitle(''); setContent(''); setImagePrompt('');
-    setProductName(''); clearImage(); setGeneratedPosts([]);
+    setProductName(''); clearImage(); setGeneratedPosts([]); setError(null);
   };
-  const handleCopyContent = (contentToCopy) => { 
-    navigator.clipboard.writeText(contentToCopy);
-    const copySuccessEl = document.getElementById('copy-success-msg');
-    if (copySuccessEl) {
-        copySuccessEl.classList.remove('hidden');
-        setTimeout(() => copySuccessEl.classList.add('hidden'), 2000);
-    }
+  const handleCopyContent = (textToCopy) => { 
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setShowCopySuccess(true);
+      setTimeout(() => setShowCopySuccess(false), 2000);
+    });
   };
   const skipToCreation = () => setCurrentStep('creation');
-  
-  useEffect(() => {
-    let currentPreviewForCleanup = imagePreview; 
-    return () => {
-        if (currentPreviewForCleanup && currentPreviewForCleanup.startsWith('blob:')) {
-            URL.revokeObjectURL(currentPreviewForCleanup);
-        }
-    };
-  }, [imagePreview]); // This effect now correctly cleans up blob URLs when imagePreview changes or unmounts.
+  const togglePlatform = (platformId) => setSelectedPlatforms(prev => ({ ...prev, [platformId]: !prev[platformId] }));
 
+  const renderPlatformButtons = (currentPlatforms, onToggle) => (
+    <div className="flex flex-wrap gap-2">
+      {PLATFORMS.map(platform => (
+        <motion.button key={platform.id} type="button" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => onToggle(platform.id)}
+          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${currentPlatforms[platform.id] ? 'bg-[#181A20] border-pastel-blue/50 text-white' : 'bg-[#181A20] border border-[#181A20] text-white/70'}`}
+          style={currentPlatforms[platform.id] ? { borderColor: platform.color } : {}}>
+          <span style={{ color: currentPlatforms[platform.id] ? platform.color : undefined }}>{platform.name}</span>
+          {currentPlatforms[platform.id] && (<Check size={14} style={{ color: platform.color }} />)}
+        </motion.button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="bg-[#23262F] p-6 rounded-xl border border-[#23262F]/60 shadow-sm">
-      <div id="copy-success-msg" className="hidden fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg z-[100]">Content copied to clipboard!</div>
+      <AnimatePresence>
+        {showCopySuccess && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg z-[100]">
+            Content copied to clipboard!
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="mb-6"> 
         <h2 className="text-2xl font-bold mb-2 flex items-center"> <Calendar className="text-pastel-blue mr-2" size={24} /> Social Media Post Creator </h2> 
         <p className="text-white/70"> Create and schedule posts for your social media platforms </p> 
@@ -452,20 +402,13 @@ const SocialPostCreator = ({ onPostScheduled }) => {
                 </motion.div>
               ))}
             </div>
-            <div className="mt-6 text-center">
-                <button 
-                    onClick={skipToCreation}
-                    className="px-6 py-2 bg-pastel-blue/10 text-pastel-blue rounded-lg hover:bg-pastel-blue/20 transition-colors font-medium"
-                >
-                    Skip and Describe Post →
-                </button>
-            </div>
+            <div className="mt-6 text-center"> <button onClick={skipToCreation} className="px-6 py-2 bg-pastel-blue/10 text-pastel-blue rounded-lg hover:bg-pastel-blue/20 transition-colors font-medium"> Skip and Describe Post → </button> </div>
           </motion.div>
         )}
         
         {currentStep === 'theme' && selectedPostType && ( 
           <motion.div key="theme" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-6">
-            <div className="flex items-center mb-4"> <button onClick={handleGoBack} className="mr-2 p-1 rounded hover:bg-[#181A20]"><ChevronLeft size={20} className="text-pastel-blue" /></button> <h3 className="text-lg font-semibold flex items-center"> <span className="w-6 h-6 rounded-full bg-pastel-blue/20 flex items-center justify-center mr-2 text-sm text-pastel-blue">2</span> Select a Theme for your {selectedPostType.name} Post </h3> </div>
+            <div className="flex items-center mb-4"> <button onClick={handleGoBack} className="mr-2 p-1 rounded hover:bg-[#181A20]"><ChevronLeft size={20} className="text-pastel-blue" /></button> <h3 className="text-lg font-semibold flex items-center"> <span className="w-6 h-6 rounded-full bg-pastel-blue/20 flex items-center justify-center mr-2 text-sm text-pastel-blue">2</span> Select Theme for {selectedPostType.name} Post </h3> </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               {selectedPostType.themes.map(theme => (
                 <motion.button key={theme.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleThemeSelect(theme.id)}
@@ -474,7 +417,7 @@ const SocialPostCreator = ({ onPostScheduled }) => {
                 </motion.button>
               ))}
             </div>
-            <div className="mt-4"> <label htmlFor="custom-theme-step2" className="block text-sm font-medium mb-2 text-white/80">Or enter a custom theme:</label> <div className="flex items-center"> <input id="custom-theme-step2" type="text" value={customTheme} onChange={(e) => setCustomTheme(e.target.value)} placeholder={`e.g., ${selectedPostType.id === 'business' ? 'Summer Collection Launch' : selectedPostType.id === 'personal' ? 'Travel Journey' : 'Industry Trends'}`} className="flex-1 p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" /> <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { if (customTheme.trim()) { setCurrentStep('creation'); } else { setError('Please enter a custom theme'); } }} className="ml-2 px-4 py-3 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg font-medium"> Continue </motion.button> </div> </div>
+            <div className="mt-4"> <label htmlFor="custom-theme-step2" className="block text-sm font-medium mb-2 text-white/80">Or custom theme:</label> <div className="flex items-center"> <input id="custom-theme-step2" type="text" value={customTheme} onChange={(e) => setCustomTheme(e.target.value)} placeholder={`e.g., ${selectedPostType.id === 'business' ? 'Summer Launch' : selectedPostType.id === 'personal' ? 'Travel Tales' : 'Industry Trends'}`} className="flex-1 p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" /> <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { if (customTheme.trim()) { setCurrentStep('creation'); } else { setError('Please enter a custom theme or select one.'); } }} className="ml-2 px-4 py-3 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg font-medium"> Continue </motion.button> </div> </div>
           </motion.div>
         )}
         
@@ -482,183 +425,69 @@ const SocialPostCreator = ({ onPostScheduled }) => {
           <motion.div key="creation" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
             <div className="flex items-center justify-between mb-4"> 
               <div className="flex items-center"> <button onClick={handleGoBack} className="mr-2 p-1 rounded hover:bg-[#181A20]"><ChevronLeft size={20} className="text-pastel-blue" /></button> <h3 className="text-lg font-semibold flex items-center"> <span className="w-6 h-6 rounded-full bg-pastel-blue/20 flex items-center justify-center mr-2 text-sm text-pastel-blue">3</span> Create Your Post </h3> </div>
-              <div className="flex items-center gap-3"> <button onClick={handleStartOver} className="text-sm text-white/70 hover:text-white">Start Over</button> <div className="flex items-center gap-2 bg-[#181A20] p-1 rounded-full"> <button onClick={() => setAiMode(true)} className={`px-3 py-1 rounded-full text-sm ${aiMode ? 'bg-pastel-blue text-[#181A20] font-medium' : 'text-white/70'}`}> <div className="flex items-center"><Sparkles size={14} className="mr-1" /><span>AI Mode</span></div> </button> <button onClick={() => setAiMode(false)} className={`px-3 py-1 rounded-full text-sm ${!aiMode ? 'bg-pastel-blue text-[#181A20] font-medium' : 'text-white/70'}`}> <div className="flex items-center"><Edit size={14} className="mr-1" /><span>Manual</span></div> </button> </div> </div>
+              <div className="flex items-center gap-3"> <button onClick={handleStartOver} className="text-sm text-white/70 hover:text-white">Start Over</button> <div className="flex items-center gap-2 bg-[#181A20] p-1 rounded-full"> <button onClick={() => setAiMode(true)} className={`px-3 py-1 rounded-full text-sm ${aiMode ? 'bg-pastel-blue text-[#181A20] font-medium' : 'text-white/70'}`}> <div className="flex items-center"><Sparkles size={14} className="mr-1" />AI Mode</div> </button> <button onClick={() => setAiMode(false)} className={`px-3 py-1 rounded-full text-sm ${!aiMode ? 'bg-pastel-blue text-[#181A20] font-medium' : 'text-white/70'}`}> <div className="flex items-center"><Edit size={14} className="mr-1" />Manual</div> </button> </div> </div>
             </div>
             
             <AnimatePresence mode="wait">
               {aiMode ? ( 
                 <motion.div key="ai-mode" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-6">
                   <div className="bg-[#181A20] p-4 rounded-lg border border-[#181A20] mb-4">
-                    <div className="flex items-start mb-4"><Sparkles size={20} className="text-pastel-blue mr-2 mt-1" />
-                      <div><h4 className="font-medium text-white">Let AI create content for you</h4>
-                           <p className="text-sm text-white/70">Describe what your post should be about and/or add an image below.</p>
-                      </div>
-                    </div>
-                    <div className="mb-4"> 
-                      <label htmlFor="custom-theme-input" className="block text-sm font-medium mb-2 text-white/80">What should this post be about?</label>
-                      <textarea id="custom-theme-input" value={customTheme} onChange={(e) => setCustomTheme(e.target.value)} placeholder="e.g., Our new line of artisanal coffee beans, focusing on rich aroma and ethical sourcing." rows={3}
-                        className="w-full p-3 rounded-lg border border-[#232731] bg-[#232731] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none resize-none" />
-                    </div>
-                    {(selectedPostType?.id === 'business' || !selectedPostType || currentStep === 'creation') && ( 
-                      <div className="mb-4">
-                        <label htmlFor="product-name-input" className="block text-sm font-medium mb-2 text-white/80">Product Name (optional)</label>
-                        <input id="product-name-input" type="text" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="e.g., 'Morning Bliss' Coffee Blend"
-                          className="w-full p-3 rounded-lg border border-[#232731] bg-[#232731] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" />
-                      </div>
-                    )}
-                    
+                    <div className="flex items-start mb-4"><Sparkles size={20} className="text-pastel-blue mr-2 mt-1" /> <div><h4 className="font-medium text-white">Let AI create content</h4> <p className="text-sm text-white/70">Describe post or add an image.</p> </div> </div>
+                    <div className="mb-4">  <label htmlFor="custom-theme-input" className="block text-sm font-medium mb-2 text-white/80">Post topic?</label> <textarea id="custom-theme-input" value={customTheme} onChange={(e) => setCustomTheme(e.target.value)} placeholder="e.g., New artisanal coffee beans, rich aroma, ethical sourcing." rows={3} className="w-full p-3 rounded-lg border border-[#232731] bg-[#232731] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none resize-none" /> </div>
+                    {(selectedPostType?.id === 'business' || currentStep === 'creation') && ( <div className="mb-4"> <label htmlFor="product-name-input" className="block text-sm font-medium mb-2 text-white/80">Product Name (opt.)</label> <input id="product-name-input" type="text" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="e.g., 'Morning Bliss' Coffee" className="w-full p-3 rounded-lg border border-[#232731] bg-[#232731] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" /> </div> )}
                     <div className="mb-4">
-                        <label className="block text-sm font-medium mb-2 text-white/80">Add an Image for AI (optional)</label>
-                        <div
-                            onDragOver={handleDragOverAI} onDragLeave={handleDragLeaveAI} onDrop={handleDropAI}
-                            className={`p-4 rounded-lg transition-all border ${isDraggingOverAI ? 'border-2 border-dashed border-pastel-blue bg-[#181A20]/70' : 'border-[#232731] bg-[#232731]/50' }`}
-                        >
-                            {!imagePreview ? (
-                                <label htmlFor="ai-image-input" className="cursor-pointer">
-                                    <div className="text-center">
-                                        <UploadCloud size={24} className="mx-auto mb-2 text-pastel-blue/70" />
-                                        <p className="text-sm text-white/70">Drag & drop image here, or click to browse</p>
-                                        <input id="ai-image-input" type="file" accept="image/*" className="hidden" onChange={handleInputChangeAI}/>
-                                    </div>
-                                </label>
-                            ) : (
-                                <div className="relative text-center">
-                                    <img src={imagePreview} alt="Preview for AI" className="max-h-40 rounded object-contain mx-auto mb-2" />
-                                    <button type="button" onClick={clearImage} className="px-3 py-1 text-xs bg-pastel-pink/20 text-pastel-pink rounded hover:bg-pastel-pink/30">
-                                        <X size={12} className="inline mr-1"/>Clear Image
-                                    </button>
-                                </div>
-                            )}
+                        <label className="block text-sm font-medium mb-2 text-white/80">Image for AI (opt.)</label>
+                        <div onDragOver={(e) => {e.preventDefault(); setIsDraggingOverAI(true);}} onDragLeave={() => setIsDraggingOverAI(false)} onDrop={(e) => handleImageDrop(e, 'ai')} className={`p-4 rounded-lg transition-all border ${isDraggingOverAI ? 'border-2 border-dashed border-pastel-blue bg-[#181A20]/70' : 'border-[#232731] bg-[#232731]/50' }`}>
+                            {!imagePreview ? (<label htmlFor="ai-image-input" className="cursor-pointer text-center"> <UploadCloud size={24} className="mx-auto mb-2 text-pastel-blue/70" /> <p className="text-sm text-white/70">Drag & drop or click</p> <input id="ai-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageInputChange}/> </label>) 
+                            : (<div className="relative text-center"> <img src={imagePreview} alt="AI Preview" className="max-h-40 rounded object-contain mx-auto mb-2" /> <button type="button" onClick={clearImage} className="px-3 py-1 text-xs bg-pastel-pink/20 text-pastel-pink rounded hover:bg-pastel-pink/30"> <X size={12} className="inline mr-1"/>Clear</button> </div>)}
                         </div>
                     </div>
-
-                    <div className="mb-4"> 
-                      <label className="block text-sm font-medium mb-2 text-white/80">Which platforms?</label>
-                      <div className="flex flex-wrap gap-2">
-                        {PLATFORMS.map(platform => (
-                          <motion.button key={platform.id} type="button" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => togglePlatform(platform.id)}
-                            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${selectedPlatforms[platform.id] ? 'bg-[#181A20] border-pastel-blue/50 text-white' : 'bg-[#181A20] border border-[#181A20] text-white/70'}`}
-                            style={selectedPlatforms[platform.id] ? { borderColor: platform.color } : {}}>
-                            <span style={{ color: selectedPlatforms[platform.id] ? platform.color : undefined }}>{platform.name}</span>
-                            {selectedPlatforms[platform.id] && (<Check size={14} style={{ color: platform.color }} />)}
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <motion.button onClick={handleGenerateWithAI} disabled={isGenerating} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className="w-full py-3 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg font-medium flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isGenerating ? (<><div className="animate-spin h-5 w-5 border-2 border-[#181A20]/20 border-t-[#181A20] rounded-full mr-2"></div>Generating Ideas...</>)
-                       : (<><Sparkles size={18} className="mr-2" />Generate Post Ideas {imagePreview ? "(with Image)" : ""}</>)}
+                    <div className="mb-4"> <label className="block text-sm font-medium mb-2 text-white/80">Platforms?</label> {renderPlatformButtons(selectedPlatforms, togglePlatform)} </div>
+                    <motion.button onClick={handleGenerateWithAI} disabled={isGenerating} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full py-3 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg font-medium flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isGenerating ? (<><div className="animate-spin h-5 w-5 border-2 border-[#181A20]/20 border-t-[#181A20] rounded-full mr-2"></div>Generating...</>) : (<><Sparkles size={18} className="mr-2" />Generate Ideas {imagePreview && "(with Image)"}</>)}
                     </motion.button>
                   </div>
                   
-                  {isGenerating && ( 
-                    <div className="mt-6 text-center p-6 bg-[#181A20] rounded-lg"> <div className="animate-spin h-8 w-8 border-4 border-pastel-blue/30 border-t-pastel-blue rounded-full mx-auto mb-3"></div> <p className="text-white/80">Generating post ideas...</p> </div>
-                  )}
-
+                  {isGenerating && ( <div className="mt-6 text-center p-6 bg-[#181A20] rounded-lg"> <div className="animate-spin h-8 w-8 border-4 border-pastel-blue/30 border-t-pastel-blue rounded-full mx-auto mb-3"></div> <p className="text-white/80">Generating...</p> </div> )}
                   {!isGenerating && generatedPosts.length > 0 && ( 
-                    <div className="mt-6 space-y-4">
-                      <h4 className="font-medium text-white flex items-center mb-2"><Zap className="text-pastel-blue h-4 w-4 mr-2" />AI-Generated Post Ideas</h4>
+                    <div className="mt-6 space-y-4"> <h4 className="font-medium text-white flex items-center mb-2"><Zap className="text-pastel-blue h-4 w-4 mr-2" />AI-Generated Ideas</h4>
                       {generatedPosts.map((post) => (
                         <motion.div key={post.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#232731] border border-[#232731] rounded-lg p-4">
-                          {post.sourceImageUrl && (
-                            <div className="mb-3 p-2 bg-[#181A20] rounded-md flex items-center gap-2"> <Image size={16} className="text-pastel-blue" /> <span className="text-xs text-white/70">Content inspired by your provided image.</span> </div>
-                          )}
-                          <h4 className="font-medium mb-2 text-white">{post.title}</h4>
-                          <p className="text-white/80 text-sm mb-4 whitespace-pre-line">{post.content}</p>
-                          {post.imagePrompt && ( 
-                            <div className="p-3 bg-[#181A20] rounded-lg mb-4">
-                              <div className="flex items-center text-xs font-medium text-white/70 mb-1"><Image size={12} className="mr-1" /><span>Image Context:</span></div>
-                              <p className="text-sm italic text-white/80">{post.imagePrompt}</p>
-                            </div>
-                          )}
-                          {post.bestTime && ( 
-                            <div className="flex items-center text-xs text-white/60 mb-3"><Clock size={12} className="mr-1" /><span>Best time: {post.bestTime}</span></div>
-                          )}
-                          <div className="flex flex-wrap justify-between gap-2"> 
-                            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleCopyContent(post.content)} className="px-3 py-1.5 border border-[#181A20] rounded-lg text-sm flex items-center hover:bg-[#181A20]/50"><Copy size={14} className="mr-1" />Copy</motion.button> 
-                            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => applyGeneratedPost(post)} className="px-3 py-1.5 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg text-sm flex items-center"><Check size={14} className="mr-1" />Use This</motion.button> 
-                          </div>
+                          {post.sourceImageUrl && (<div className="mb-3 p-2 bg-[#181A20] rounded-md flex items-center gap-2"> <Image size={16} className="text-pastel-blue" /> <span className="text-xs text-white/70">Inspired by your image.</span> </div>)}
+                          <h4 className="font-medium mb-2 text-white">{post.title}</h4> <p className="text-white/80 text-sm mb-4 whitespace-pre-line">{post.content}</p>
+                          {post.imagePrompt && ( <div className="p-3 bg-[#181A20] rounded-lg mb-4"> <div className="flex items-center text-xs font-medium text-white/70 mb-1"><Image size={12} className="mr-1" />Image Context:</div> <p className="text-sm italic text-white/80">{post.imagePrompt}</p> </div> )}
+                          {post.bestTime && ( <div className="flex items-center text-xs text-white/60 mb-3"><Clock size={12} className="mr-1" />Best time: {post.bestTime}</div> )}
+                          <div className="flex flex-wrap justify-between gap-2">  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleCopyContent(post.content)} className="px-3 py-1.5 border border-[#181A20] rounded-lg text-sm flex items-center hover:bg-[#181A20]/50"><Copy size={14} className="mr-1" />Copy</motion.button>  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => applyGeneratedPost(post)} className="px-3 py-1.5 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg text-sm flex items-center"><Check size={14} className="mr-1" />Use This</motion.button>  </div>
                         </motion.div>
                       ))}
                     </div>
                   )}
-                  {!isGenerating && generatedPosts.length === 0 && ( 
-                    <div className="mt-6 text-center p-6 bg-[#181A20]/50 rounded-lg border border-[#181A20]"> <Zap size={24} className="mx-auto mb-2 text-pastel-blue/50" /> <p className="text-white/70 text-sm">AI ideas will appear here.</p> </div>
-                  )}
+                  {!isGenerating && generatedPosts.length === 0 && !error && ( <div className="mt-6 text-center p-6 bg-[#181A20]/50 rounded-lg border border-[#181A20]"> <Zap size={24} className="mx-auto mb-2 text-pastel-blue/50" /> <p className="text-white/70 text-sm">AI ideas appear here.</p> </div> )}
                 </motion.div>
               ) : ( 
                 <motion.div key="manual-mode" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                   <form onSubmit={handleSchedulePost} className="space-y-4">
-                    <div> 
-                      <label htmlFor="manual-title" className="block text-sm font-medium mb-2 text-white/80">Post Title (optional)</label>
-                      <input id="manual-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={selectedPostType?.id === 'business' ? "e.g., Summer Sale Announcement" : selectedPostType?.id === 'personal' ? "e.g., My Travel Adventure" : "e.g., 5 Tips for Better Productivity"}
-                        className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" />
-                    </div>
-                    <div> 
-                      <label htmlFor="post-content-area" className="block text-sm font-medium mb-2 text-white/80">Post Content</label>
-                      <textarea id="post-content-area" value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write your post content here..." rows={5}
-                        className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none resize-none" />
-                    </div>
-                    <div 
-                      onDragOver={handleDragOverManual} onDragLeave={handleDragLeaveManual} onDrop={handleDropManual}
-                      className={`p-4 rounded-lg transition-all border ${isDraggingOverManual ? 'border-2 border-dashed border-pastel-blue bg-[#181A20]/70' : 'border-[#232731] bg-[#181A20]/30' }`}
-                    >
-                      <label className="block text-sm font-medium mb-2 text-white/80"> Image (optional) - Drag & Drop here or</label>
+                    <div> <label htmlFor="manual-title" className="block text-sm font-medium mb-2 text-white/80">Title (opt.)</label> <input id="manual-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={selectedPostType?.id === 'business' ? "e.g., Summer Sale" : selectedPostType?.id === 'personal' ? "e.g., My Travel Adventure" : "e.g., 5 Productivity Tips"} className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" /> </div>
+                    <div> <label htmlFor="post-content-area" className="block text-sm font-medium mb-2 text-white/80">Content</label> <textarea id="post-content-area" value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write post content..." rows={5} className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none resize-none" /> </div>
+                    <div onDragOver={(e) => {e.preventDefault(); setIsDraggingOverManual(true);}} onDragLeave={() => setIsDraggingOverManual(false)} onDrop={(e) => handleImageDrop(e, 'manual')} className={`p-4 rounded-lg transition-all border ${isDraggingOverManual ? 'border-2 border-dashed border-pastel-blue bg-[#181A20]/70' : 'border-[#232731] bg-[#181A20]/30' }`}>
+                      <label className="block text-sm font-medium mb-2 text-white/80"> Image (opt.) - Drag & Drop or</label>
                       <div className="flex items-center gap-3">
-                        <motion.label htmlFor="manual-image-input" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                          className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#232731] hover:bg-[#232731]/70 border border-[#232731] hover:border-pastel-blue/50 text-white">
-                          <UploadCloud size={16} className="text-pastel-blue" /><span>Upload Image</span>
-                          <input id="manual-image-input" type="file" accept="image/*" className="hidden" onChange={handleInputChangeManual}/>
-                        </motion.label>
-                        {imageFile && ( 
-                          <div className="flex items-center gap-2"> <Image size={18} className="text-pastel-blue" /> <span className="text-sm text-white/80 truncate max-w-[150px]">{imageFile.name}</span> <button type="button" onClick={clearImage} className="p-1 text-white/60 hover:text-white" title="Remove selected image"><X size={16} /></button> </div>
-                        )}
+                        <motion.label htmlFor="manual-image-input" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#232731] hover:bg-[#232731]/70 border border-[#232731] hover:border-pastel-blue/50 text-white"> <UploadCloud size={16} className="text-pastel-blue" /><span>Upload</span> <input id="manual-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageInputChange}/> </motion.label>
+                        {imageFile && ( <div className="flex items-center gap-2"> <Image size={18} className="text-pastel-blue" /> <span className="text-sm text-white/80 truncate max-w-[150px]">{imageFile.name}</span> <button type="button" onClick={clearImage} className="p-1 text-white/60 hover:text-white" title="Remove image"><X size={16} /></button> </div> )}
                       </div>
-                      {imagePreview && ( 
-                        <div className="mt-3 relative max-w-xs"> <p className="text-xs text-white/70 mb-1">Image Preview:</p> <img src={imagePreview} alt="Preview" className="max-h-40 rounded-lg object-contain bg-[#232731] p-1 border border-[#232731]" /> 
-                          <button type="button" onClick={clearImage} className="absolute top-0 right-0 mt-1 mr-1 p-0.5 bg-[#181A20]/70 rounded-full text-white/80 hover:text-white" title="Clear image preview"><X size={14} /></button>
-                        </div>
-                      )}
+                      {imagePreview && ( <div className="mt-3 relative max-w-xs"> <p className="text-xs text-white/70 mb-1">Preview:</p> <img src={imagePreview} alt="Preview" className="max-h-40 rounded-lg object-contain bg-[#232731] p-1 border border-[#232731]" />  <button type="button" onClick={clearImage} className="absolute top-0 right-0 mt-1 mr-1 p-0.5 bg-[#181A20]/70 rounded-full text-white/80 hover:text-white" title="Clear preview"><X size={14} /></button> </div> )}
                       {isDraggingOverManual && (<p className="mt-2 text-sm text-pastel-blue text-center">Drop image here</p>)}
                     </div>
-                    <div> 
-                      <label htmlFor="manual-image-prompt" className="block text-sm font-medium mb-2 text-white/80">Image Prompt (if no image attached, AI can generate one)</label>
-                      <input id="manual-image-prompt" type="text" value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} placeholder="Describe the image you want AI to generate..."
-                        className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" />
-                    </div>
-                    <div className="pt-2"> 
-                      <button type="button" onClick={() => setShowAdvancedOptions(!showAdvancedOptions)} className="flex items-center text-white/70 hover:text-white text-sm">
-                        {showAdvancedOptions ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />}
-                        <span>{showAdvancedOptions ? 'Hide Advanced Options' : 'Show Advanced Options'}</span>
-                      </button>
-                    </div>
-                    <AnimatePresence>{showAdvancedOptions && ( 
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium mb-2 text-white/80">Platforms</label>
-                          <div className="flex flex-wrap gap-2">
-                            {PLATFORMS.map(platform => (
-                              <motion.button key={platform.id} type="button" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => togglePlatform(platform.id)}
-                                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${selectedPlatforms[platform.id] ? 'bg-[#181A20] border-pastel-blue/50 text-white' : 'bg-[#181A20] border border-[#181A20] text-white/70'}`}
-                                style={selectedPlatforms[platform.id] ? { borderColor: platform.color } : {}}>
-                                <span style={{ color: selectedPlatforms[platform.id] ? platform.color : undefined }}>{platform.name}</span>
-                                {selectedPlatforms[platform.id] && (<Check size={14} style={{ color: platform.color }} />)}
-                              </motion.button>
-                            ))}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}</AnimatePresence>
+                    <div> <label htmlFor="manual-image-prompt" className="block text-sm font-medium mb-2 text-white/80">Image Prompt (if no image, AI can generate)</label> <input id="manual-image-prompt" type="text" value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} placeholder="Describe image for AI generation..." className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white placeholder:text-white/50 focus:border-pastel-blue/50 outline-none" /> </div>
+                    <div className="pt-2"> <button type="button" onClick={() => setShowAdvancedOptions(!showAdvancedOptions)} className="flex items-center text-white/70 hover:text-white text-sm"> {showAdvancedOptions ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />} <span>{showAdvancedOptions ? 'Hide' : 'Show'} Advanced Options</span> </button> </div>
+                    <AnimatePresence>{showAdvancedOptions && ( <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden"> <div className="mb-4"> <label className="block text-sm font-medium mb-2 text-white/80">Platforms</label> {renderPlatformButtons(selectedPlatforms, togglePlatform)} </div> </motion.div> )}</AnimatePresence>
                     <div className="pt-4 border-t border-[#181A20]"> 
                       <h4 className="font-semibold text-white mb-3 flex items-center"><Calendar size={16} className="mr-2 text-pastel-blue" />Schedule Post</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                         <div><label htmlFor="schedule-date" className="block text-sm font-medium mb-2 text-white/80">Date</label><input id="schedule-date" type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white" /></div>
                         <div><label htmlFor="schedule-time" className="block text-sm font-medium mb-2 text-white/80">Time</label><input id="schedule-time" type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="w-full p-3 rounded-lg border border-[#181A20] bg-[#181A20] text-white" /></div>
                       </div>
-                      <motion.button type="submit" disabled={isSubmitting} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="w-full py-3 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg font-medium flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                      <motion.button type="submit" disabled={isSubmitting} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full py-3 bg-pastel-blue hover:bg-pastel-blue/80 text-[#181A20] rounded-lg font-medium flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                         {isSubmitting ? (<><div className="animate-spin h-5 w-5 border-2 border-[#181A20]/20 border-t-[#181A20] rounded-full mr-2"></div>Scheduling...</>) : (<><Send size={18} className="mr-2" />Schedule Post</>)}
                       </motion.button>
                     </div>
@@ -672,24 +501,16 @@ const SocialPostCreator = ({ onPostScheduled }) => {
       
       <AnimatePresence> 
         {showSuccess && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className="fixed bottom-4 right-4 bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-lg shadow-lg flex items-center z-[100]">
-            <Check size={20} className="mr-2" /><div><p className="font-medium">Post scheduled!</p><p className="text-sm">Your post has been added to the schedule</p></div>
-          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-4 right-4 bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-lg shadow-lg flex items-center z-[100]"> <Check size={20} className="mr-2" /><div><p className="font-medium">Post scheduled!</p><p className="text-sm">Added to schedule.</p></div> </motion.div>
         )}
       </AnimatePresence>
       
       <div className="fixed bottom-4 left-4 z-50"> 
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="bg-[#181A20] p-2 rounded-full shadow-lg border border-pastel-blue/30 cursor-pointer group relative">
           <Info size={20} className="text-pastel-blue" />
-          <motion.div initial={{ opacity: 0, scale: 0.8 }} whileHover={{ opacity: 1, scale: 1 }} className="absolute left-0 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity w-64 bg-[#181A20] p-3 rounded-lg border border-pastel-blue/20 shadow-xl pointer-events-none">
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 0 }} whileHover={{ opacity: 1, scale: 1 }} className="absolute left-0 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity w-64 bg-[#181A20] p-3 rounded-lg border border-pastel-blue/20 shadow-xl pointer-events-none">
             <h5 className="font-medium text-white mb-1">Quick Tips</h5>
-            <ul className="text-xs text-white/70 space-y-1 list-disc pl-4">
-              <li>Optionally select post type/theme.</li>
-              <li>In AI Mode: Describe your post and/or add an image in the AI section.</li>
-              <li>In Manual Mode: Write content & upload/drop image in the Manual section.</li>
-              <li>Schedule for optimal engagement.</li>
-            </ul>
+            <ul className="text-xs text-white/70 space-y-1 list-disc pl-4"> <li>Opt. select type/theme.</li> <li>AI Mode: Describe post and/or add image.</li> <li>Manual Mode: Write content & upload/drop image.</li> <li>Schedule for optimal engagement.</li> </ul>
           </motion.div>
         </motion.div>
       </div>

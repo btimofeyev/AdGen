@@ -4,9 +4,6 @@ const router = express.Router();
 const socialController = require('../controllers/socialController');
 const { verifyToken, optionalAuth } = require('../middleware/auth');
 
-// Routes that work with optional authentication
-//router.get('/templates', optionalAuth, socialController.getPostTemplates);
-
 // Protected routes - require authentication
 router.post('/generate', verifyToken, socialController.generatePostIdeas);
 
